@@ -1,6 +1,6 @@
 # Heladería Antojos — Fase 2
 
-Sistema de operación para Heladería Antojos. Esta es la **Fase 2**: incluye todo lo de la Fase 1 más reportes y estadísticas, compartir factura en PNG, ediciones inteligentes, despachador avanzado, cajero y una capa de servicios lista para conectar con backend (API Routes + Neon PostgreSQL).
+Sistema de operación para Heladería Antojos. Esta es la **Fase 2**: incluye todo lo de la Fase 1 más reportes y estadísticas, compartir factura en PNG, ediciones inteligentes, despachador avanzado, cajero y una capa de servicios lista para conectar con backend (API Routes + Supabase/PostgreSQL).
 
 ## Tecnologías
 
@@ -42,8 +42,9 @@ cp .env.example .env.local
 |---|---|---|
 | `NEXT_PUBLIC_ADMIN_PASSWORD` | Contraseña del panel Admin | `admin123` |
 | `NEXT_PUBLIC_BUSINESS_NAME` | Nombre del negocio | `Heladería Antojos` |
-| `NEXT_PUBLIC_USE_BACKEND` | (Futuro) Activa el backend HTTP | `false` |
-| `DATABASE_URL` | (Futuro) Conexión Neon PostgreSQL | — |
+| `NEXT_PUBLIC_USE_BACKEND` | Activa el backend HTTP (API Routes + Supabase) | `false` |
+| `SUPABASE_URL` | URL del proyecto de Supabase (Project Settings > API) | — |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key de Supabase (secreta, solo servidor) | — |
 | `AUTH_SECRET` | (Futuro) Secreto de autenticación | — |
 
 ## Novedades de la Fase 2
@@ -72,14 +73,35 @@ Domiciliarios con actividad del día. Al abrir cada uno se calcula el **efectivo
 ### 6-8. Mesas, domiciliarios y caja del día
 Ingresos de mesas separados por método (efectivo, Nequi, Bancolombia, Daviplata, datáfono); ingresos por domiciliario separando efectivo/transferencia sin sumar domicilios; y "Caja del día" como botón desplegable que muestra solo los medios utilizados.
 
-### 9. Preparación para backend real
+### 9. Backend real con Supabase (PostgreSQL)
 LocalStorage se reemplazó por una **capa de servicios** (`src/services/`):
 - `types.ts`: el contrato `DataService` que usa toda la app.
-- `localStorageService.ts`: implementación actual (asíncrona) sobre LocalStorage.
-- `httpService.ts`: esqueleto listo para API Routes + Neon.
-- `index.ts`: punto único donde se elige la implementación.
+- `localStorageService.ts`: implementación sobre LocalStorage (modo demo, sin backend).
+- `httpService.ts`: implementación HTTP que llama a las API Routes (`/api/...`).
+- `index.ts`: elige la implementación según `NEXT_PUBLIC_USE_BACKEND`.
 
-Para migrar a backend, se implementan las API Routes, se completa `HttpService` y se cambia una sola línea en `services/index.ts`. La interfaz no cambia.
+Las API Routes viven en `src/app/api/` y usan el cliente de Supabase (`src/lib/supabase.ts`) más los mapeos camelCase <-> snake_case de `src/lib/mappers.ts`.
+
+#### Cómo activar el backend
+
+1. Crea un proyecto en [Supabase](https://supabase.com).
+2. En el **SQL Editor** del proyecto, ejecuta el script `supabase/schema.sql` (crea las tablas `locales`, `productos`, `domiciliarios`, `mesas`, `facturas`).
+3. En **Project Settings > API**, copia la `Project URL` y la `service_role` key.
+4. En `.env.local`, configura:
+
+   ```bash
+   NEXT_PUBLIC_USE_BACKEND=true
+   SUPABASE_URL=https://xxxx.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=eyJ...
+   ```
+
+5. Reinicia `npm run dev`. La app ahora persiste en Supabase en vez de LocalStorage; la interfaz de usuario no cambia.
+
+> `SUPABASE_SERVICE_ROLE_KEY` es secreta (sin prefijo `NEXT_PUBLIC_`) y solo se usa dentro de las API Routes, nunca se expone al navegador.
+
+#### Limitación conocida
+
+`asignarDomiciliario(facturaId, null)` (quitar un domiciliario asignado) actualiza el estado local correctamente, pero al usar el backend HTTP el campo `domiciliarioId: undefined` no viaja en el body JSON (se elimina al serializar), por lo que la columna `domiciliario_id` no se limpia en la base de datos. Para soportarlo con backend habría que permitir `null` explícito en `Factura.domiciliarioId` y en `updateFactura`.
 
 ## Estructura del proyecto
 
