@@ -2,7 +2,7 @@
 // Postgres devuelve los "numeric" como string, por eso se convierten con Number().
 
 import {
-  Local, Producto, Domiciliario, Mesa, Factura,
+  Local, Producto, Domiciliario, Mesa, Factura, Gasto,
 } from "@/types";
 
 // ---------- Locales ----------
@@ -141,6 +141,7 @@ export const rowToFactura = (r: any): Factura => ({
   despachado: r.despachado,
   domiciliarioId: r.domiciliario_id ?? undefined,
   servida: r.servida ?? undefined,
+  fechaProgramada: r.fecha_programada ?? undefined,
 });
 
 export const facturaToRow = (f: Factura) => ({
@@ -164,6 +165,27 @@ export const facturaToRow = (f: Factura) => ({
   despachado: f.despachado,
   domiciliario_id: f.domiciliarioId ?? null,
   servida: f.servida ?? null,
+  fecha_programada: f.fechaProgramada ?? null,
+});
+
+// ---------- Gastos ----------
+
+export const rowToGasto = (r: any): Gasto => ({
+  id: r.id,
+  localId: r.local_id,
+  descripcion: r.descripcion,
+  medioPago: r.medio_pago,
+  valor: Number(r.valor),
+  creadoEn: r.creado_en,
+});
+
+export const gastoToRow = (g: Gasto) => ({
+  id: g.id,
+  local_id: g.localId,
+  descripcion: g.descripcion,
+  medio_pago: g.medioPago,
+  valor: g.valor,
+  creado_en: g.creadoEn,
 });
 
 export const facturaPatchToRow = (f: Partial<Factura>) => {
@@ -186,5 +208,6 @@ export const facturaPatchToRow = (f: Partial<Factura>) => {
   if (f.despachado !== undefined) row.despachado = f.despachado;
   if (f.domiciliarioId !== undefined) row.domiciliario_id = f.domiciliarioId;
   if (f.servida !== undefined) row.servida = f.servida;
+  if (f.fechaProgramada !== undefined) row.fecha_programada = f.fechaProgramada;
   return row;
 };

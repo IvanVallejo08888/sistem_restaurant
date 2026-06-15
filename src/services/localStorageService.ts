@@ -5,15 +5,15 @@
 import { DataService, Snapshot } from "./types";
 import { storage } from "@/lib/storage";
 import { uid, now } from "@/lib/utils";
-import { Local, Producto, Domiciliario, Mesa, Factura } from "@/types";
+import { Local, Producto, Domiciliario, Mesa, Factura, Gasto } from "@/types";
 
 const KEY = "data";
 
 const empty: Snapshot = {
-  locales: [], productos: [], domiciliarios: [], mesas: [], facturas: [],
+  locales: [], productos: [], domiciliarios: [], mesas: [], facturas: [], gastos: [],
 };
 
-const read = (): Snapshot => storage.load<Snapshot>(KEY, empty);
+const read = (): Snapshot => ({ ...empty, ...storage.load<Snapshot>(KEY, empty) });
 const write = (s: Snapshot) => storage.save(KEY, s);
 const tick = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 0));
 
@@ -105,5 +105,17 @@ export class LocalStorageService implements DataService {
     const facturas = s.facturas.map((x) => (x.id === id ? (updated = { ...x, ...d }) : x));
     write({ ...s, facturas });
     return tick(updated);
+  }
+
+  async createGasto(d: Omit<Gasto, "id" | "creadoEn">) {
+    const s = read();
+    const item: Gasto = { ...d, id: uid(), creadoEn: now() };
+    write({ ...s, gastos: [...s.gastos, item] });
+    return tick(item);
+  }
+  async deleteGasto(id: string) {
+    const s = read();
+    write({ ...s, gastos: s.gastos.filter((x) => x.id !== id) });
+    return tick(undefined);
   }
 }

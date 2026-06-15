@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import {
-  Local, Producto, Domiciliario, Mesa, Factura,
+  Local, Producto, Domiciliario, Mesa, Factura, Gasto,
 } from "@/types";
 import { dataService } from "@/services";
 
@@ -14,6 +14,7 @@ type DataState = {
   domiciliarios: Domiciliario[];
   mesas: Mesa[];
   facturas: Factura[];
+  gastos: Gasto[];
   hydrated: boolean;
 
   hydrate: () => Promise<void>;
@@ -39,6 +40,9 @@ type DataState = {
   // Fase 2
   asignarDomiciliario: (facturaId: string, domiciliarioId: string | null) => Promise<void>;
   marcarServida: (facturaId: string, servida: boolean) => Promise<void>;
+
+  addGasto: (d: Omit<Gasto, "id" | "creadoEn">) => Promise<void>;
+  removeGasto: (id: string) => Promise<void>;
 };
 
 export const useData = create<DataState>((set, get) => ({
@@ -47,6 +51,7 @@ export const useData = create<DataState>((set, get) => ({
   domiciliarios: [],
   mesas: [],
   facturas: [],
+  gastos: [],
   hydrated: false,
 
   hydrate: async () => {
@@ -128,5 +133,14 @@ export const useData = create<DataState>((set, get) => ({
   marcarServida: async (facturaId, servida) => {
     const up = await dataService.updateFactura(facturaId, { servida });
     set((s) => ({ facturas: s.facturas.map((x) => (x.id === facturaId ? up : x)) }));
+  },
+
+  addGasto: async (d) => {
+    const it = await dataService.createGasto(d);
+    set((s) => ({ gastos: [...s.gastos, it] }));
+  },
+  removeGasto: async (id) => {
+    await dataService.deleteGasto(id);
+    set((s) => ({ gastos: s.gastos.filter((x) => x.id !== id) }));
   },
 }));

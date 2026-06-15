@@ -4,7 +4,7 @@
 // en esta fase se implementa con LocalStorage. Cambiar de una a otra NO afecta la UI.
 
 import {
-  Local, Producto, Domiciliario, Mesa, Factura,
+  Local, Producto, Domiciliario, Mesa, Factura, Gasto,
 } from "@/types";
 
 export type Snapshot = {
@@ -13,6 +13,7 @@ export type Snapshot = {
   domiciliarios: Domiciliario[];
   mesas: Mesa[];
   facturas: Factura[];
+  gastos: Gasto[];
 };
 
 export interface DataService {
@@ -41,4 +42,8 @@ export interface DataService {
   // Facturas
   createFactura(d: Omit<Factura, "id" | "creadoEn">): Promise<Factura>;
   updateFactura(id: string, d: Partial<Factura>): Promise<Factura>;
+
+  // Gastos
+  createGasto(d: Omit<Gasto, "id" | "creadoEn">): Promise<Gasto>;
+  deleteGasto(id: string): Promise<void>;
 }

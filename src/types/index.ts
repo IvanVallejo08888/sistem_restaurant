@@ -38,6 +38,15 @@ export type Mesa = {
   creadoEn: string;
 };
 
+export type Gasto = {
+  id: ID;
+  localId: ID;
+  descripcion: string;
+  medioPago: MetodoPago;
+  valor: number;
+  creadoEn: string;
+};
+
 export type MetodoPago =
   | "efectivo"
   | "nequi"
@@ -86,6 +95,9 @@ export type Factura = {
   domiciliarioId?: ID;
   // Fase 2: mesa ya servida (cajón tipo playlist en despachador)
   servida?: boolean;
+  // Fase 2: reserva de domicilio para preparar en una fecha futura (YYYY-MM-DD).
+  // Mientras la fecha no llegue, no aparece en Cocina.
+  fechaProgramada?: string;
 };
 
 export type Rol = "cocina" | "facturacion" | "despachador" | "admin" | "cajero";

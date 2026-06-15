@@ -1,6 +1,6 @@
 // Cálculos de reportes, caja y cajero. Reglas de negocio centralizadas.
 
-import { Factura, MetodoPago } from "@/types";
+import { Factura, Gasto, MetodoPago } from "@/types";
 import { esTransferencia } from "./factura";
 
 // Filtra facturas de un local creadas hoy (zona horaria local del navegador).
@@ -26,6 +26,34 @@ export const cajaPorMetodo = (facturas: Factura[]) => {
 
 export const cajaTotal = (facturas: Factura[]) =>
   facturas.reduce((a, f) => a + f.total, 0);
+
+// Caja del día separada en efectivo vs. transferencias, con el detalle
+// de cada método de transferencia (nequi, bancolombia, daviplata, datafono).
+export const cajaEfectivoVsTransferencia = (facturas: Factura[]) => {
+  let efectivo = 0;
+  let transferencia = 0;
+  const porMetodoTransferencia: Partial<Record<MetodoPago, number>> = {};
+  facturas.forEach((f) => {
+    if (esTransferencia(f.metodoPago)) {
+      transferencia += f.total;
+      porMetodoTransferencia[f.metodoPago] = (porMetodoTransferencia[f.metodoPago] || 0) + f.total;
+    } else {
+      efectivo += f.total;
+    }
+  });
+  return { efectivo, transferencia, porMetodoTransferencia };
+};
+
+// Gastos del día (filtrados por local y fecha de hoy).
+export const gastosDelDia = (gastos: Gasto[], localId: string) =>
+  gastos.filter((g) => g.localId === localId && esDeHoy(g.creadoEn));
+
+export const totalGastos = (gastos: Gasto[]) =>
+  gastos.reduce((a, g) => a + g.valor, 0);
+
+// Gastos pagados en efectivo: salen directamente de la caja física.
+export const totalGastosEfectivo = (gastos: Gasto[]) =>
+  gastos.filter((g) => g.medioPago === "efectivo").reduce((a, g) => a + g.valor, 0);
 
 // Utilidad simple del día (sin costos detallados en esta fase): total - gastos.
 export const utilidadDia = (facturas: Factura[], gastos = 0) =>

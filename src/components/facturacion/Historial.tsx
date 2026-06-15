@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Search, Eye, Pencil, Armchair, Bike } from "lucide-react";
+import { Search, Eye, Pencil, Armchair, Bike, CalendarClock } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { normalize, formatCOP, formatHora12, cx } from "@/lib/utils";
@@ -77,6 +77,11 @@ export function Historial() {
                 <p className="text-xs text-cocoa/60">
                   {formatHora12(f.creadoEn)} · {labelMetodo(f.metodoPago)} · {f.items.length} ítem(s)
                 </p>
+                {f.fechaProgramada && (
+                  <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-raspberry-light px-2 py-0.5 text-xs font-bold text-raspberry-dark">
+                    <CalendarClock size={12} /> Reserva para {f.fechaProgramada}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-black text-cocoa">{formatCOP(f.total)}</span>

@@ -78,8 +78,28 @@ create table if not exists facturas (
   -- Despacho
   despachado        boolean not null default false,
   domiciliario_id   text,
-  servida           boolean
+  servida           boolean,
+  -- Reserva: fecha en la que se debe preparar (no aparece en Cocina antes de esa fecha)
+  fecha_programada  date
 );
 
 create index if not exists facturas_local_id_idx on facturas(local_id);
 alter table facturas enable row level security;
+
+-- Si la tabla "facturas" ya existía antes de añadir la reserva, agrega la columna:
+alter table facturas add column if not exists fecha_programada date;
+
+create table if not exists gastos (
+  id          text primary key,
+  local_id    text not null references locales(id) on delete cascade,
+  descripcion text not null,
+  medio_pago  text not null default 'efectivo',
+  valor       numeric not null default 0,
+  creado_en   timestamptz not null default now()
+);
+
+create index if not exists gastos_local_id_idx on gastos(local_id);
+alter table gastos enable row level security;
+
+-- Si la tabla "gastos" ya existía antes de añadir el medio de pago, agrega la columna:
+alter table gastos add column if not exists medio_pago text not null default 'efectivo';

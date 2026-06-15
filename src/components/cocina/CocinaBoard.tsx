@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Armchair, Bike, Check, ChevronLeft, ChevronRight, Clock, Volume2, VolumeX } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
-import { formatHora12, horaMas, cx } from "@/lib/utils";
+import { formatHora12, horaMas, now, cx } from "@/lib/utils";
 import { folio } from "@/lib/factura";
 import { playDing } from "@/lib/sound";
 import { Card } from "@/components/ui/Card";
@@ -22,14 +22,18 @@ export function CocinaBoard() {
   const [storyIdx, setStoryIdx] = useState<number | null>(null);
   const [confirmar, setConfirmar] = useState<Factura | null>(null);
 
-  // Pendientes (no listas) del local actual
-  const pendientes = useMemo(
-    () =>
-      facturas
-        .filter((f) => f.localId === localId && f.estado === "pendiente")
-        .sort((a, b) => +new Date(a.creadoEn) - +new Date(b.creadoEn)),
-    [facturas, localId]
-  );
+  // Pendientes (no listas) del local actual.
+  // Las reservas con fecha futura no aparecen hasta el día programado.
+  const pendientes = useMemo(() => {
+    const hoy = now().slice(0, 10);
+    return facturas
+      .filter((f) =>
+        f.localId === localId &&
+        f.estado === "pendiente" &&
+        (!f.fechaProgramada || f.fechaProgramada <= hoy)
+      )
+      .sort((a, b) => +new Date(a.creadoEn) - +new Date(b.creadoEn));
+  }, [facturas, localId]);
 
   const mesas = pendientes.filter((f) => f.tipo === "mesa");
   const domicilios = pendientes.filter((f) => f.tipo === "domicilio");

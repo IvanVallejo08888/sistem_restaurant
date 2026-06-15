@@ -26,3 +26,10 @@ export const mesaSchema = z.object({
   nombre: z.string().min(1, "Nombre requerido"),
 });
 export type MesaForm = z.infer<typeof mesaSchema>;
+
+export const gastoSchema = z.object({
+  descripcion: z.string().min(1, "Nombre requerido"),
+  medioPago: z.enum(["efectivo", "nequi", "bancolombia", "daviplata", "datafono"]),
+  valor: z.coerce.number().min(1, "Valor inválido"),
+});
+export type GastoForm = z.infer<typeof gastoSchema>;
