@@ -43,25 +43,11 @@ export default function Home() {
       </header>
 
       <section className="mx-auto grid max-w-2xl gap-5 px-6 pb-16 sm:grid-cols-2">
-        {/* Administrador */}
-        <button
-          disabled={!ready}
-          onClick={() => setGate({ rol: "admin", ruta: "/admin" })}
-          style={{ animationDelay: "0ms" }}
-          className="group animate-fade-up rounded-xl2 border border-sand bg-gradient-to-br from-cocoa/10 to-cocoa/20 p-6 text-left shadow-card transition-all hover:-translate-y-1 hover:shadow-soft focus:outline-none disabled:opacity-60"
-        >
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-raspberry shadow-card transition-transform group-hover:scale-110">
-            <Shield size={28} strokeWidth={1.8} />
-          </div>
-          <h2 className="font-display text-2xl font-semibold text-cocoa">Administrador</h2>
-          <p className="mt-1 text-sm text-cocoa/60">Configuración, reportes y control del sistema.</p>
-        </button>
-
         {/* Área de Trabajo */}
         <button
           disabled={!ready}
           onClick={() => setGate({ rol: "facturacion", titulo: "Acceso · Área de Trabajo", ruta: "/workspace" })}
-          style={{ animationDelay: "60ms" }}
+          style={{ animationDelay: "0ms" }}
           className="group animate-fade-up rounded-xl2 border border-sand bg-gradient-to-br from-pistachio/10 to-mint/20 p-6 text-left shadow-card transition-all hover:-translate-y-1 hover:shadow-soft focus:outline-none disabled:opacity-60"
         >
           <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-raspberry shadow-card transition-transform group-hover:scale-110">
@@ -69,6 +55,20 @@ export default function Home() {
           </div>
           <h2 className="font-display text-2xl font-semibold text-cocoa">Área de Trabajo</h2>
           <p className="mt-1 text-sm text-cocoa/60">Ingresa para comenzar tu jornada de trabajo.</p>
+        </button>
+
+        {/* Administrador */}
+        <button
+          disabled={!ready}
+          onClick={() => setGate({ rol: "admin", ruta: "/admin" })}
+          style={{ animationDelay: "60ms" }}
+          className="group animate-fade-up rounded-xl2 border border-sand bg-gradient-to-br from-cocoa/10 to-cocoa/20 p-6 text-left shadow-card transition-all hover:-translate-y-1 hover:shadow-soft focus:outline-none disabled:opacity-60"
+        >
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-raspberry shadow-card transition-transform group-hover:scale-110">
+            <Shield size={28} strokeWidth={1.8} />
+          </div>
+          <h2 className="font-display text-2xl font-semibold text-cocoa">Administrador</h2>
+          <p className="mt-1 text-sm text-cocoa/60">Configuración, reportes y control del sistema.</p>
         </button>
       </section>
 
