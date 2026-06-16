@@ -41,6 +41,7 @@ export const rowToProducto = (r: any): Producto => ({
   localId: r.local_id,
   nombre: r.nombre,
   valor: Number(r.valor),
+  categoria: r.categoria ?? "heladeria",
   creadoEn: r.creado_en,
 });
 
@@ -49,6 +50,7 @@ export const productoToRow = (p: Producto) => ({
   local_id: p.localId,
   nombre: p.nombre,
   valor: p.valor,
+  categoria: p.categoria,
   creado_en: p.creadoEn,
 });
 
@@ -57,6 +59,7 @@ export const productoPatchToRow = (p: Partial<Producto>) => {
   if (p.localId !== undefined) row.local_id = p.localId;
   if (p.nombre !== undefined) row.nombre = p.nombre;
   if (p.valor !== undefined) row.valor = p.valor;
+  if (p.categoria !== undefined) row.categoria = p.categoria;
   return row;
 };
 
@@ -142,6 +145,13 @@ export const rowToFactura = (r: any): Factura => ({
   domiciliarioId: r.domiciliario_id ?? undefined,
   servida: r.servida ?? undefined,
   fechaProgramada: r.fecha_programada ?? undefined,
+  horaReserva: r.hora_reserva ?? undefined,
+  nombreFavor: r.nombre_favor ?? undefined,
+  medioTransferencia: r.medio_transferencia ?? undefined,
+  descuentoDomiciliario: r.descuento_domiciliario != null ? Number(r.descuento_domiciliario) : undefined,
+  heladeriaLista: r.heladeria_lista ?? false,
+  comidasListas: r.comidas_listas ?? false,
+  deletedAt: r.deleted_at ?? undefined,
 });
 
 export const facturaToRow = (f: Factura) => ({
@@ -166,6 +176,13 @@ export const facturaToRow = (f: Factura) => ({
   domiciliario_id: f.domiciliarioId ?? null,
   servida: f.servida ?? null,
   fecha_programada: f.fechaProgramada ?? null,
+  hora_reserva: f.horaReserva ?? null,
+  nombre_favor: f.nombreFavor ?? null,
+  medio_transferencia: f.medioTransferencia ?? null,
+  descuento_domiciliario: f.descuentoDomiciliario ?? null,
+  heladeria_lista: f.heladeriaLista ?? false,
+  comidas_listas: f.comidasListas ?? false,
+  deleted_at: f.deletedAt ?? null,
 });
 
 // ---------- Gastos ----------
@@ -209,5 +226,12 @@ export const facturaPatchToRow = (f: Partial<Factura>) => {
   if (f.domiciliarioId !== undefined) row.domiciliario_id = f.domiciliarioId;
   if (f.servida !== undefined) row.servida = f.servida;
   if (f.fechaProgramada !== undefined) row.fecha_programada = f.fechaProgramada;
+  if (f.horaReserva !== undefined) row.hora_reserva = f.horaReserva;
+  if (f.nombreFavor !== undefined) row.nombre_favor = f.nombreFavor;
+  if (f.medioTransferencia !== undefined) row.medio_transferencia = f.medioTransferencia;
+  if (f.descuentoDomiciliario !== undefined) row.descuento_domiciliario = f.descuentoDomiciliario;
+  if (f.heladeriaLista !== undefined) row.heladeria_lista = f.heladeriaLista;
+  if (f.comidasListas !== undefined) row.comidas_listas = f.comidasListas;
+  if (f.deletedAt !== undefined) row.deleted_at = f.deletedAt;
   return row;
 };
