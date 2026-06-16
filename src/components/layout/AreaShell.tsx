@@ -44,7 +44,11 @@ export function AreaShell({
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-sand bg-cream/90 px-4 py-3 backdrop-blur sm:px-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push("/")} className="rounded-full p-2 hover:bg-sand" aria-label="Inicio">
+          <button
+            onClick={() => router.push(requireKind === "admin" ? "/" : "/workspace")}
+            className="rounded-full p-2 hover:bg-sand"
+            aria-label="Volver"
+          >
             <ArrowLeft size={20} />
           </button>
           <div>

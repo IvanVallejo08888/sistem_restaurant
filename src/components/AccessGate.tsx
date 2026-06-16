@@ -12,11 +12,12 @@ const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123";
 // Compuerta de acceso. Admin usa contraseña global; los demás roles
 // requieren la contraseña de un local activo y fijan la sesión a ese local.
 export function AccessGate({
-  rol, onClose, onSuccess,
+  rol, onClose, onSuccess, titulo,
 }: {
   rol: Rol;
   onClose: () => void;
   onSuccess: () => void;
+  titulo?: string;
 }) {
   const locales = useData((s) => s.locales);
   const loginAdmin = useSession((s) => s.loginAdmin);
@@ -41,7 +42,7 @@ export function AccessGate({
     <Modal
       open
       onClose={onClose}
-      title={esAdmin ? "Acceso de Administrador" : `Acceso · ${labelRol(rol)}`}
+      title={titulo ?? (esAdmin ? "Acceso de Administrador" : `Acceso · ${labelRol(rol)}`)}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
