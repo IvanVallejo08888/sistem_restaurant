@@ -1,19 +1,16 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Armchair, Bike, CalendarClock, Check, ChevronLeft, ChevronRight,
-  Clock, Volume2, VolumeX,
+  Armchair, Bike, CalendarClock, Check, Clock, Volume2, VolumeX,
 } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
-import { formatHora12, horaMas, now, cx } from "@/lib/utils";
+import { formatHora12, now, cx } from "@/lib/utils";
 import { folio } from "@/lib/factura";
 import { playDing } from "@/lib/sound";
-import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Confirm } from "@/components/ui/Confirm";
 import { Empty } from "@/components/ui/Empty";
-import { Factura } from "@/types";
+import { Factura, Producto } from "@/types";
 
 type TabCocina = "domicilio" | "mesa" | "reserva-domicilio" | "reserva-mesa";
 
@@ -31,22 +28,244 @@ const TIPO_LABEL: Record<TabCocina, string> = {
   "reserva-mesa": "Res. Mesa",
 };
 
+// ── Sombras dinámicas por categoría ──────────────────────────────────────────
+const SHADOW_HELADERIA =
+  "0 0 0 3px rgba(59,130,246,0.45), 0 6px 20px rgba(59,130,246,0.2)";
+const SHADOW_COMIDAS =
+  "0 0 0 3px rgba(251,146,60,0.45), 0 6px 20px rgba(251,146,60,0.2)";
+const SHADOW_MIXTO =
+  "-4px 0 8px rgba(59,130,246,0.4), 4px 0 8px rgba(251,146,60,0.4), 0 4px 14px rgba(0,0,0,0.08)";
+
+function calcularSombra(
+  items: Factura["items"],
+  productos: Producto[]
+): string | undefined {
+  const cats = new Set(
+    items
+      .map((it) => productos.find((p) => p.id === it.productoId)?.categoria)
+      .filter(Boolean)
+  );
+  const h = cats.has("heladeria");
+  const c = cats.has("comidas-rapidas");
+  if (h && c) return SHADOW_MIXTO;
+  if (h) return SHADOW_HELADERIA;
+  if (c) return SHADOW_COMIDAS;
+  return undefined;
+}
+
 function nombreFactura(f: Factura) {
   return f.tipo === "mesa" || f.tipo === "reserva-mesa" ? f.mesaNombre : f.clienteNombre;
 }
 
+// ── Tarjeta individual de cocina ──────────────────────────────────────────────
+function CocinaCard({ factura }: { factura: Factura }) {
+  const productos = useData((s) => s.productos);
+  const updateFactura = useData((s) => s.updateFactura);
+
+  // Agrupar items por categoría
+  const getCategoria = (productoId: string) =>
+    productos.find((p) => p.id === productoId)?.categoria;
+
+  const itemsHeladeria = factura.items.filter(
+    (it) => getCategoria(it.productoId) === "heladeria"
+  );
+  const itemsComidas = factura.items.filter(
+    (it) => getCategoria(it.productoId) === "comidas-rapidas"
+  );
+  const itemsOtros = factura.items.filter((it) => !getCategoria(it.productoId));
+
+  const tieneHeladeria = itemsHeladeria.length > 0;
+  const tieneComidas = itemsComidas.length > 0;
+
+  // Validación: cada sección presente debe estar completada
+  const heladeriaOk = !tieneHeladeria || !!factura.heladeriaLista;
+  const comidasOk = !tieneComidas || !!factura.comidasListas;
+  const puedeDespachar = heladeriaOk && comidasOk;
+
+  const shadowStyle = calcularSombra(factura.items, productos);
+  const esMesaTipo = factura.tipo === "mesa" || factura.tipo === "reserva-mesa";
+  const tipoLabel = TIPO_LABEL[factura.tipo as TabCocina] ?? factura.tipo;
+
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-2xl border border-sand/50 bg-white p-4 transition-shadow"
+      style={shadowStyle ? { boxShadow: shadowStyle } : undefined}
+    >
+      {/* ── Cabecera ───────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="font-display text-xl font-black text-cocoa">{folio(factura)}</p>
+          <p className="text-sm font-semibold text-cocoa/70">{nombreFactura(factura)}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className="flex items-center gap-1 text-xs text-cocoa/50">
+            <Clock size={11} /> {formatHora12(factura.creadoEn)}
+          </span>
+          <span className={cx(
+            "rounded-full px-2 py-0.5 text-xs font-bold",
+            esMesaTipo ? "bg-mint/20 text-cocoa" : "bg-raspberry-light text-raspberry-dark"
+          )}>
+            {tipoLabel}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Fecha reserva ─────────────────────────────────────────── */}
+      {factura.fechaProgramada && (
+        <p className="flex items-center gap-1 text-xs font-bold text-raspberry-dark">
+          <CalendarClock size={12} />
+          {factura.fechaProgramada}{factura.horaReserva ? ` · ${factura.horaReserva}` : ""}
+        </p>
+      )}
+
+      {/* ── Dirección domicilio ───────────────────────────────────── */}
+      {!esMesaTipo && factura.direccion && (
+        <p className="text-xs text-cocoa/60">
+          {factura.direccion}{factura.barrio ? ` · ${factura.barrio}` : ""}
+        </p>
+      )}
+
+      {/* ── Sección Heladería ──────────────────────────────────────── */}
+      {tieneHeladeria && (
+        <div className={cx(
+          "rounded-xl border-2 p-3 transition",
+          factura.heladeriaLista
+            ? "border-blue-400 bg-blue-50"
+            : "border-sand bg-sand/20"
+        )}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-blue-700">🍦 Heladería</p>
+            <button
+              onClick={() =>
+                updateFactura(factura.id, { heladeriaLista: !factura.heladeriaLista })
+              }
+              className={cx(
+                "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition",
+                factura.heladeriaLista
+                  ? "bg-blue-500 text-white"
+                  : "border border-blue-200 bg-white text-blue-600 hover:bg-blue-50"
+              )}
+            >
+              <Check size={11} />
+              {factura.heladeriaLista ? "Lista ✓" : "Marcar lista"}
+            </button>
+          </div>
+          <div className="space-y-0.5">
+            {itemsHeladeria.map((it, i) => (
+              <p key={i} className={cx("text-sm text-cocoa", it.nuevo && "font-bold text-raspberry-dark")}>
+                {it.cantidad}× {it.nombre}
+                {it.nuevo && <span className="ml-1 text-xs font-bold text-raspberry">(NUEVO)</span>}
+                {it.observacion && (
+                  <span className="ml-1 text-xs italic text-cocoa/60">— {it.observacion}</span>
+                )}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Sección Comidas Rápidas ────────────────────────────────── */}
+      {tieneComidas && (
+        <div className={cx(
+          "rounded-xl border-2 p-3 transition",
+          factura.comidasListas
+            ? "border-orange-400 bg-orange-50"
+            : "border-sand bg-sand/20"
+        )}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-orange-700">🍔 Comidas Rápidas</p>
+            <button
+              onClick={() =>
+                updateFactura(factura.id, { comidasListas: !factura.comidasListas })
+              }
+              className={cx(
+                "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition",
+                factura.comidasListas
+                  ? "bg-orange-500 text-white"
+                  : "border border-orange-200 bg-white text-orange-600 hover:bg-orange-50"
+              )}
+            >
+              <Check size={11} />
+              {factura.comidasListas ? "Listas ✓" : "Marcar listas"}
+            </button>
+          </div>
+          <div className="space-y-0.5">
+            {itemsComidas.map((it, i) => (
+              <p key={i} className={cx("text-sm text-cocoa", it.nuevo && "font-bold text-raspberry-dark")}>
+                {it.cantidad}× {it.nombre}
+                {it.nuevo && <span className="ml-1 text-xs font-bold text-raspberry">(NUEVO)</span>}
+                {it.observacion && (
+                  <span className="ml-1 text-xs italic text-cocoa/60">— {it.observacion}</span>
+                )}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Otros items (sin categoría asignada) ──────────────────── */}
+      {itemsOtros.length > 0 && (
+        <div className="space-y-0.5 rounded-xl border border-sand p-3">
+          {itemsOtros.map((it, i) => (
+            <p key={i} className="text-sm text-cocoa/70">
+              {it.cantidad}× {it.nombre}
+              {it.observacion && (
+                <span className="ml-1 text-xs italic text-cocoa/50">— {it.observacion}</span>
+              )}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* ── Indicador de progreso ──────────────────────────────────── */}
+      {(tieneHeladeria || tieneComidas) && (
+        <div className="flex flex-wrap gap-1.5">
+          {tieneHeladeria && (
+            <span className={cx(
+              "rounded-full px-2 py-0.5 text-xs font-semibold",
+              factura.heladeriaLista
+                ? "bg-blue-100 text-blue-700"
+                : "bg-sand text-cocoa/50"
+            )}>
+              Heladería {factura.heladeriaLista ? "✓" : "○"}
+            </span>
+          )}
+          {tieneComidas && (
+            <span className={cx(
+              "rounded-full px-2 py-0.5 text-xs font-semibold",
+              factura.comidasListas
+                ? "bg-orange-100 text-orange-700"
+                : "bg-sand text-cocoa/50"
+            )}>
+              Comidas {factura.comidasListas ? "✓" : "○"}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ── Botón Despachar ────────────────────────────────────────── */}
+      <Button
+        className="mt-auto w-full"
+        disabled={!puedeDespachar}
+        onClick={() => updateFactura(factura.id, { estado: "listo" })}
+      >
+        <Check size={16} />
+        {puedeDespachar ? "Despachar" : "Completar validaciones"}
+      </Button>
+    </div>
+  );
+}
+
+// ── Tablero principal de Cocina ───────────────────────────────────────────────
 export function CocinaBoard() {
   const localId = useSession((s) => s.localId)!;
   const facturas = useData((s) => s.facturas);
-  const updateFactura = useData((s) => s.updateFactura);
 
   const [sonido, setSonido] = useState(true);
   const [tab, setTab] = useState<TabCocina>("domicilio");
-  const [storyIdx, setStoryIdx] = useState<number | null>(null);
-  const [confirmar, setConfirmar] = useState<Factura | null>(null);
 
-  // Pendientes del local (excluye "favor" que va directo al despachador)
-  // Las reservas con fecha futura no aparecen hasta el día programado.
+  // Pendientes: excluye "favor" (va directo al despachador)
+  // Reservas con fecha futura no aparecen hasta el día programado
   const pendientes = useMemo(() => {
     const hoy = now().slice(0, 10);
     return facturas
@@ -82,11 +301,6 @@ export function CocinaBoard() {
     conocidas.current = ids;
   }, [pendientes, sonido]);
 
-  const marcarListo = (f: Factura) => {
-    updateFactura(f.id, { estado: "listo" });
-    setStoryIdx(null);
-  };
-
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -97,7 +311,9 @@ export function CocinaBoard() {
               onClick={() => setTab(t.key)}
               className={cx(
                 "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition",
-                tab === t.key ? "bg-raspberry text-white" : "bg-sand text-cocoa/70 hover:bg-raspberry-light"
+                tab === t.key
+                  ? "bg-raspberry text-white"
+                  : "bg-sand text-cocoa/70 hover:bg-raspberry-light"
               )}
             >
               {t.icon}{t.label(byTipo[t.key].length)}
@@ -111,134 +327,17 @@ export function CocinaBoard() {
       </div>
 
       {activos.length === 0 ? (
-        <Empty title="Nada en preparación" hint="Las nuevas facturas aparecerán aquí con un aviso sonoro." />
-      ) : (
-        <div className="flex flex-wrap gap-4">
-          {activos.map((f, i) => (
-            <button
-              key={f.id}
-              onClick={() => setStoryIdx(i)}
-              className="group flex w-24 flex-col items-center gap-2"
-            >
-              <span className="rounded-full bg-gradient-to-tr from-raspberry to-pistachio p-[3px] transition group-hover:scale-105">
-                <span className="grid h-20 w-20 place-items-center rounded-full bg-vanilla">
-                  <span className="text-center">
-                    <span className="block font-display text-lg font-black text-cocoa">{f.consecutivo}</span>
-                    <span className="block text-[10px] font-bold text-cocoa/60">{formatHora12(f.creadoEn)}</span>
-                  </span>
-                </span>
-              </span>
-              <span className="truncate text-xs font-semibold text-cocoa/80">
-                {nombreFactura(f)}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {storyIdx !== null && activos[storyIdx] && (
-        <StoryViewer
-          facturas={activos}
-          index={storyIdx}
-          onIndex={setStoryIdx}
-          onClose={() => setStoryIdx(null)}
-          onListo={(f) => setConfirmar(f)}
+        <Empty
+          title="Nada en preparación"
+          hint="Las nuevas facturas aparecerán aquí con un aviso sonoro."
         />
-      )}
-
-      <Confirm
-        open={!!confirmar}
-        onClose={() => setConfirmar(null)}
-        onConfirm={() => confirmar && marcarListo(confirmar)}
-        title="Marcar como listo"
-        message={`¿Confirmas que ${confirmar ? folio(confirmar) : ""} está listo? Saldrá de cocina.`}
-        confirmLabel="Sí, está listo"
-      />
-    </div>
-  );
-}
-
-function StoryViewer({
-  facturas, index, onIndex, onClose, onListo,
-}: {
-  facturas: Factura[];
-  index: number;
-  onIndex: (i: number) => void;
-  onClose: () => void;
-  onListo: (f: Factura) => void;
-}) {
-  const f = facturas[index];
-  const prev = () => onIndex(Math.max(0, index - 1));
-  const next = () => index < facturas.length - 1 ? onIndex(index + 1) : onClose();
-
-  const esMesaTipo = f.tipo === "mesa" || f.tipo === "reserva-mesa";
-  const tipoLabel = TIPO_LABEL[f.tipo as TabCocina] ?? f.tipo;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-cocoa/70 p-4 backdrop-blur-sm">
-      <div className="absolute left-1/2 top-6 flex w-full max-w-md -translate-x-1/2 gap-1 px-4">
-        {facturas.map((_, i) => (
-          <span key={i} className={cx("h-1 flex-1 rounded-full", i <= index ? "bg-white" : "bg-white/30")} />
-        ))}
-      </div>
-
-      <button onClick={prev} disabled={index === 0} className="absolute left-2 rounded-full bg-white/20 p-2 text-white disabled:opacity-30 sm:left-6">
-        <ChevronLeft size={24} />
-      </button>
-
-      <Card className="w-full max-w-md animate-pop p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-display text-2xl font-black text-cocoa">{folio(f)}</p>
-            <p className="text-sm font-semibold text-cocoa/70">{f.tipo === "mesa" || f.tipo === "reserva-mesa" ? f.mesaNombre : f.clienteNombre}</p>
-          </div>
-          <span className={cx(
-            "rounded-full px-3 py-1 text-xs font-bold",
-            esMesaTipo ? "bg-mint/20 text-cocoa" : "bg-raspberry-light text-raspberry-dark"
-          )}>
-            {tipoLabel}
-          </span>
-        </div>
-
-        {/* Fecha de reserva si aplica */}
-        {f.fechaProgramada && (
-          <p className="mt-2 flex items-center gap-1 text-xs font-bold text-raspberry-dark">
-            <CalendarClock size={13} />
-            Reserva para el {f.fechaProgramada}{f.horaReserva ? ` a las ${f.horaReserva}` : ""}
-          </p>
-        )}
-
-        <div className="mt-3 flex items-center gap-4 rounded-xl bg-sand/60 px-4 py-2 text-sm font-bold text-cocoa">
-          <span className="flex items-center gap-1"><Clock size={15} /> {formatHora12(f.creadoEn)}</span>
-          <span className="text-cocoa/40">→</span>
-          <span className="flex items-center gap-1 text-raspberry-dark">{horaMas(f.creadoEn, 30)}</span>
-        </div>
-
-        {!esMesaTipo && (
-          <p className="mt-3 text-sm text-cocoa/70">{f.direccion}{f.barrio ? ` · ${f.barrio}` : ""}</p>
-        )}
-
-        <div className="mt-4 max-h-64 space-y-2 overflow-y-auto scrollbar-thin">
-          {f.items.map((it, i) => (
-            <div key={i} className={cx("rounded-xl border px-3 py-2", it.nuevo ? "border-raspberry bg-raspberry-light/40" : "border-sand")}>
-              <p className="font-bold text-cocoa">
-                {it.cantidad}× {it.nombre}
-                {it.nuevo && <span className="ml-2 rounded-full bg-raspberry px-2 py-0.5 text-[10px] font-bold text-white">NUEVO</span>}
-              </p>
-              {it.observacion && <p className="text-sm italic text-raspberry-dark">— {it.observacion}</p>}
-            </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {activos.map((f) => (
+            <CocinaCard key={f.id} factura={f} />
           ))}
         </div>
-
-        <div className="mt-5 flex gap-3">
-          <Button variant="ghost" className="flex-1" onClick={onClose}>Cerrar</Button>
-          <Button className="flex-1" onClick={() => onListo(f)}><Check size={18} /> Marcar listo</Button>
-        </div>
-      </Card>
-
-      <button onClick={next} className="absolute right-2 rounded-full bg-white/20 p-2 text-white sm:right-6">
-        <ChevronRight size={24} />
-      </button>
+      )}
     </div>
   );
 }

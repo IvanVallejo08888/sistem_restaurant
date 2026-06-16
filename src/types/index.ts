@@ -12,11 +12,14 @@ export type Local = {
   creadoEn: string;
 };
 
+export type CategoriaProducto = "heladeria" | "comidas-rapidas";
+
 export type Producto = {
   id: ID;
   localId: ID;
   nombre: string;
   valor: number;
+  categoria: CategoriaProducto;
   creadoEn: string;
 };
 
@@ -106,6 +109,9 @@ export type Factura = {
   nombreFavor?: string;
   medioTransferencia?: MedioTransferencia; // solo si metodoPago === "mixto"
   descuentoDomiciliario?: number; // descuento calculado al domiciliario asignado
+  // Validaciones de cocina (persisten en Supabase para sobrevivir recargas)
+  heladeriaLista?: boolean;  // sección heladería completada por cocina
+  comidasListas?: boolean;   // sección comidas rápidas completada por cocina
   // Soft delete: no se elimina físicamente, solo se marca con fecha
   deletedAt?: string;
 };

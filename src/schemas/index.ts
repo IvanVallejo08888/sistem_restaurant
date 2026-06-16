@@ -8,6 +8,10 @@ export const localSchema = z.object({
 export type LocalForm = z.infer<typeof localSchema>;
 
 export const productoSchema = z.object({
+  categoria: z.enum(["heladeria", "comidas-rapidas"] as const, {
+    required_error: "Selecciona el tipo de producto",
+    invalid_type_error: "Selecciona el tipo de producto",
+  }),
   nombre: z.string().min(1, "Nombre requerido"),
   valor: z.coerce.number().min(0, "Valor inválido"),
 });

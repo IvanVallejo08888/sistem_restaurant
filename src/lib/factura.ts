@@ -6,8 +6,10 @@ export const subtotalDe = (items: ItemFactura[]) =>
 export const totalDe = (items: ItemFactura[], valorDomicilio = 0) =>
   subtotalDe(items) + (valorDomicilio || 0);
 
-// Métodos de pago estándar (mesa, domicilio, reservas)
-export const metodosPago: { value: MetodoPago; label: string; grupo: "efectivo" | "transferencia" }[] = [
+export type MetodoPagoEstandar = Exclude<MetodoPago, "mixto" | "domiciliario">;
+
+// Métodos de pago estándar (mesa, domicilio, reservas, gastos)
+export const metodosPago: { value: MetodoPagoEstandar; label: string; grupo: "efectivo" | "transferencia" }[] = [
   { value: "efectivo", label: "Efectivo", grupo: "efectivo" },
   { value: "nequi", label: "Nequi", grupo: "transferencia" },
   { value: "bancolombia", label: "Bancolombia", grupo: "transferencia" },

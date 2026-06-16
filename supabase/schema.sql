@@ -24,6 +24,8 @@ create table if not exists productos (
   local_id   text not null references locales(id) on delete cascade,
   nombre     text not null,
   valor      numeric not null default 0,
+  -- 'heladeria' | 'comidas-rapidas'; la validación ocurre en la app
+  categoria  text not null default 'heladeria',
   creado_en  timestamptz not null default now()
 );
 
@@ -87,6 +89,9 @@ create table if not exists facturas (
   nombre_favor      text,            -- texto libre del favor
   medio_transferencia text,          -- 'nequi'|'bancolombia'|'daviplata'; solo si metodo_pago='mixto'
   descuento_domiciliario numeric,    -- descuento calculado al domiciliario asignado
+  -- Validaciones de cocina (persisten en BD para sobrevivir recargas)
+  heladeria_lista   boolean not null default false,
+  comidas_listas    boolean not null default false,
   -- Soft delete: no se elimina físicamente, solo se marca con fecha
   deleted_at        timestamptz      -- null = activo; fecha = eliminada
 );
@@ -95,12 +100,16 @@ create index if not exists facturas_local_id_idx on facturas(local_id);
 alter table facturas enable row level security;
 
 -- Migraciones para tablas pre-existentes (ejecutar solo si la tabla ya existía)
+alter table productos add column if not exists categoria text not null default 'heladeria';
+
 alter table facturas add column if not exists fecha_programada date;
 alter table facturas add column if not exists hora_reserva text;
 alter table facturas add column if not exists nombre_favor text;
 alter table facturas add column if not exists medio_transferencia text;
 alter table facturas add column if not exists descuento_domiciliario numeric;
 alter table facturas add column if not exists deleted_at timestamptz;
+alter table facturas add column if not exists heladeria_lista boolean not null default false;
+alter table facturas add column if not exists comidas_listas boolean not null default false;
 
 -- Los nuevos valores de "tipo" son: 'mesa','domicilio','favor','reserva-domicilio','reserva-mesa'
 -- Los nuevos valores de "metodo_pago" son: 'efectivo','nequi','bancolombia','daviplata','datafono','mixto','domiciliario'

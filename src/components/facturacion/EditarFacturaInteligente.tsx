@@ -56,7 +56,8 @@ export function EditarFacturaInteligente({
 
     if (seAgregaronProductos) {
       // Vuelve a cocina; los ítems nuevos conservan su marca rosada.
-      updateFactura(factura.id, { ...base, estado: "pendiente", despachado: false });
+      // Se resetean las validaciones de categoría para que cocina vuelva a completarlas.
+      updateFactura(factura.id, { ...base, estado: "pendiente", despachado: false, heladeriaLista: false, comidasListas: false });
     } else if (preparada) {
       // Solo cambios administrativos: directo al despachador (estado "listo").
       updateFactura(factura.id, { ...base, estado: "listo" });

@@ -20,8 +20,16 @@ const tick = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 0));
 export class LocalStorageService implements DataService {
   async loadAll() {
     const s = read();
-    // Excluir facturas con soft delete del estado en memoria
-    return tick({ ...s, facturas: s.facturas.filter((f) => !f.deletedAt) });
+    return tick({
+      ...s,
+      // Excluir facturas con soft delete del estado en memoria
+      facturas: s.facturas.filter((f) => !f.deletedAt),
+      // Migración: productos existentes sin categoría reciben "heladeria" por defecto
+      productos: s.productos.map((p) => ({
+        categoria: "heladeria" as const,
+        ...p,
+      })),
+    });
   }
 
   async createLocal(d: Omit<Local, "id" | "creadoEn">) {
