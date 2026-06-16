@@ -19,7 +19,9 @@ const tick = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 0));
 
 export class LocalStorageService implements DataService {
   async loadAll() {
-    return tick(read());
+    const s = read();
+    // Excluir facturas con soft delete del estado en memoria
+    return tick({ ...s, facturas: s.facturas.filter((f) => !f.deletedAt) });
   }
 
   async createLocal(d: Omit<Local, "id" | "creadoEn">) {
@@ -105,6 +107,14 @@ export class LocalStorageService implements DataService {
     const facturas = s.facturas.map((x) => (x.id === id ? (updated = { ...x, ...d }) : x));
     write({ ...s, facturas });
     return tick(updated);
+  }
+  async deleteFactura(id: string) {
+    // Soft delete: marca la factura con deletedAt en lugar de borrarla físicamente.
+    // TODO: restringir por rol (admin/supervisor) cuando se implemente sistema de permisos.
+    const s = read();
+    const facturas = s.facturas.map((x) => (x.id === id ? { ...x, deletedAt: now() } : x));
+    write({ ...s, facturas });
+    return tick(undefined);
   }
 
   async createGasto(d: Omit<Gasto, "id" | "creadoEn">) {

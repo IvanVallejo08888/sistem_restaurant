@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Search, Eye, Pencil, Armchair, Bike, CalendarClock } from "lucide-react";
+import { Search, Eye, Pencil, Trash2, Armchair, Bike, Gift, CalendarClock } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { normalize, formatCOP, formatHora12, cx } from "@/lib/utils";
@@ -8,19 +8,36 @@ import { folio, labelMetodo } from "@/lib/factura";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { Confirm } from "@/components/ui/Confirm";
 import { Empty } from "@/components/ui/Empty";
 import { CompartirFactura } from "./CompartirFactura";
 import { EditarFacturaInteligente } from "./EditarFacturaInteligente";
 import { Factura, TipoFactura } from "@/types";
 
+const TABS: { tipo: TipoFactura; label: string; icon: React.ReactNode }[] = [
+  { tipo: "mesa", label: "Mesas", icon: <Armchair size={14} /> },
+  { tipo: "domicilio", label: "Domicilios", icon: <Bike size={14} /> },
+  { tipo: "favor", label: "Favores", icon: <Gift size={14} /> },
+  { tipo: "reserva-domicilio", label: "Res. Domicilio", icon: <CalendarClock size={14} /> },
+  { tipo: "reserva-mesa", label: "Res. Mesa", icon: <CalendarClock size={14} /> },
+];
+
+function nombreFactura(f: Factura): string {
+  if (f.tipo === "mesa" || f.tipo === "reserva-mesa") return f.mesaNombre ?? "";
+  if (f.tipo === "favor") return f.nombreFavor ?? "";
+  return f.clienteNombre ?? "";
+}
+
 export function Historial() {
   const localId = useSession((s) => s.localId)!;
   const facturas = useData((s) => s.facturas.filter((f) => f.localId === localId));
+  const removeFactura = useData((s) => s.removeFactura);
 
   const [tab, setTab] = useState<TipoFactura>("mesa");
   const [q, setQ] = useState("");
   const [ver, setVer] = useState<Factura | null>(null);
   const [editar, setEditar] = useState<Factura | null>(null);
+  const [eliminar, setEliminar] = useState<Factura | null>(null);
 
   const lista = useMemo(() => {
     const base = facturas
@@ -30,7 +47,7 @@ export function Historial() {
     const nq = normalize(q);
     return base.filter((f) =>
       normalize(folio(f)).includes(nq) ||
-      normalize(f.clienteNombre || f.mesaNombre || "").includes(nq) ||
+      normalize(nombreFactura(f)).includes(nq) ||
       normalize(f.barrio || "").includes(nq)
     );
   }, [facturas, tab, q]);
@@ -38,18 +55,19 @@ export function Historial() {
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2">
-          {(["mesa", "domicilio"] as TipoFactura[]).map((t) => (
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((t) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={t.tipo}
+              onClick={() => setTab(t.tipo)}
               className={cx(
-                "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition",
-                tab === t ? "bg-raspberry text-white" : "bg-sand text-cocoa/70 hover:bg-raspberry-light"
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition",
+                tab === t.tipo
+                  ? "bg-raspberry text-white"
+                  : "bg-sand text-cocoa/70 hover:bg-raspberry-light"
               )}
             >
-              {t === "mesa" ? <Armchair size={16} /> : <Bike size={16} />}
-              {t === "mesa" ? "Mesas" : "Domicilios"}
+              {t.icon}{t.label}
             </button>
           ))}
         </div>
@@ -72,21 +90,30 @@ export function Historial() {
             <Card key={f.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
                 <p className="font-bold text-cocoa">
-                  {folio(f)} · {f.tipo === "mesa" ? f.mesaNombre : f.clienteNombre}
+                  {folio(f)} · {nombreFactura(f)}
                 </p>
                 <p className="text-xs text-cocoa/60">
                   {formatHora12(f.creadoEn)} · {labelMetodo(f.metodoPago)} · {f.items.length} ítem(s)
                 </p>
                 {f.fechaProgramada && (
                   <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-raspberry-light px-2 py-0.5 text-xs font-bold text-raspberry-dark">
-                    <CalendarClock size={12} /> Reserva para {f.fechaProgramada}
+                    <CalendarClock size={12} />
+                    Reserva para {f.fechaProgramada}{f.horaReserva ? ` · ${f.horaReserva}` : ""}
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-black text-cocoa">{formatCOP(f.total)}</span>
-                <Button size="sm" variant="secondary" onClick={() => setVer(f)}><Eye size={14} /> Ver</Button>
-                <Button size="sm" variant="ghost" onClick={() => setEditar(f)}><Pencil size={14} /> Editar</Button>
+                <Button size="sm" variant="secondary" onClick={() => setVer(f)}>
+                  <Eye size={14} /> Ver
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditar(f)}>
+                  <Pencil size={14} /> Editar
+                </Button>
+                {/* TODO: restringir a roles admin/supervisor cuando se implemente sistema de permisos */}
+                <Button size="sm" variant="danger" onClick={() => setEliminar(f)}>
+                  <Trash2 size={14} /> Eliminar
+                </Button>
               </div>
             </Card>
           ))}
@@ -103,6 +130,16 @@ export function Historial() {
           onClose={() => setEditar(null)}
         />
       )}
+
+      <Confirm
+        open={!!eliminar}
+        onClose={() => setEliminar(null)}
+        onConfirm={() => { if (eliminar) removeFactura(eliminar.id); }}
+        title="Eliminar factura"
+        message={`¿Estás seguro de que deseas eliminar la factura ${eliminar ? folio(eliminar) : ""}? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        danger
+      />
     </div>
   );
 }

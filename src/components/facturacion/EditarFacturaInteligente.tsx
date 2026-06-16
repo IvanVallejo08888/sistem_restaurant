@@ -41,14 +41,15 @@ export function EditarFacturaInteligente({
 
   const seAgregaronProductos = items.some((it) => it.nuevo);
   const subtotal = subtotalDe(items);
-  const total = totalDe(items, factura.tipo === "domicilio" ? valorDom : 0);
+  const esDomicilioTipo = factura.tipo === "domicilio" || factura.tipo === "reserva-domicilio";
+  const total = totalDe(items, esDomicilioTipo ? valorDom : 0);
 
   const guardar = () => {
     const base: Partial<Factura> = {
       items,
       metodoPago: metodo,
-      barrio: factura.tipo === "domicilio" ? barrio : undefined,
-      valorDomicilio: factura.tipo === "domicilio" ? valorDom : undefined,
+      barrio: esDomicilioTipo ? barrio : undefined,
+      valorDomicilio: esDomicilioTipo ? valorDom : undefined,
       subtotal,
       total,
     };

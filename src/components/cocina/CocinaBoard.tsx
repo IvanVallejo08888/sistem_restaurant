@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Armchair, Bike, Check, ChevronLeft, ChevronRight, Clock, Volume2, VolumeX } from "lucide-react";
+import {
+  Armchair, Bike, CalendarClock, Check, ChevronLeft, ChevronRight,
+  Clock, Volume2, VolumeX,
+} from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { formatHora12, horaMas, now, cx } from "@/lib/utils";
@@ -10,7 +13,27 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Confirm } from "@/components/ui/Confirm";
 import { Empty } from "@/components/ui/Empty";
-import { Factura, TipoFactura } from "@/types";
+import { Factura } from "@/types";
+
+type TabCocina = "domicilio" | "mesa" | "reserva-domicilio" | "reserva-mesa";
+
+const TABS_COCINA: { key: TabCocina; label: (n: number) => string; icon: React.ReactNode }[] = [
+  { key: "domicilio", label: (n) => `Domicilios (${n})`, icon: <Bike size={16} /> },
+  { key: "mesa", label: (n) => `Mesas (${n})`, icon: <Armchair size={16} /> },
+  { key: "reserva-domicilio", label: (n) => `Res. Domicilio (${n})`, icon: <CalendarClock size={16} /> },
+  { key: "reserva-mesa", label: (n) => `Res. Mesa (${n})`, icon: <CalendarClock size={16} /> },
+];
+
+const TIPO_LABEL: Record<TabCocina, string> = {
+  domicilio: "Domicilio",
+  mesa: "Mesa",
+  "reserva-domicilio": "Res. Domicilio",
+  "reserva-mesa": "Res. Mesa",
+};
+
+function nombreFactura(f: Factura) {
+  return f.tipo === "mesa" || f.tipo === "reserva-mesa" ? f.mesaNombre : f.clienteNombre;
+}
 
 export function CocinaBoard() {
   const localId = useSession((s) => s.localId)!;
@@ -18,11 +41,11 @@ export function CocinaBoard() {
   const updateFactura = useData((s) => s.updateFactura);
 
   const [sonido, setSonido] = useState(true);
-  const [tab, setTab] = useState<TipoFactura>("domicilio");
+  const [tab, setTab] = useState<TabCocina>("domicilio");
   const [storyIdx, setStoryIdx] = useState<number | null>(null);
   const [confirmar, setConfirmar] = useState<Factura | null>(null);
 
-  // Pendientes (no listas) del local actual.
+  // Pendientes del local (excluye "favor" que va directo al despachador)
   // Las reservas con fecha futura no aparecen hasta el día programado.
   const pendientes = useMemo(() => {
     const hoy = now().slice(0, 10);
@@ -30,21 +53,27 @@ export function CocinaBoard() {
       .filter((f) =>
         f.localId === localId &&
         f.estado === "pendiente" &&
+        f.tipo !== "favor" &&
         (!f.fechaProgramada || f.fechaProgramada <= hoy)
       )
       .sort((a, b) => +new Date(a.creadoEn) - +new Date(b.creadoEn));
   }, [facturas, localId]);
 
-  const mesas = pendientes.filter((f) => f.tipo === "mesa");
-  const domicilios = pendientes.filter((f) => f.tipo === "domicilio");
-  const activos = tab === "mesa" ? mesas : domicilios;
+  const byTipo: Record<TabCocina, Factura[]> = useMemo(() => ({
+    domicilio: pendientes.filter((f) => f.tipo === "domicilio"),
+    mesa: pendientes.filter((f) => f.tipo === "mesa"),
+    "reserva-domicilio": pendientes.filter((f) => f.tipo === "reserva-domicilio"),
+    "reserva-mesa": pendientes.filter((f) => f.tipo === "reserva-mesa"),
+  }), [pendientes]);
+
+  const activos = byTipo[tab];
 
   // Detecta nuevas facturas y reproduce sonido
   const conocidas = useRef<Set<string> | null>(null);
   useEffect(() => {
     const ids = new Set(pendientes.map((f) => f.id));
     if (conocidas.current === null) {
-      conocidas.current = ids; // primera carga: no sonar
+      conocidas.current = ids;
       return;
     }
     let nueva = false;
@@ -61,18 +90,17 @@ export function CocinaBoard() {
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2">
-          {(["domicilio", "mesa"] as TipoFactura[]).map((t) => (
+        <div className="flex flex-wrap gap-2">
+          {TABS_COCINA.map((t) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={t.key}
+              onClick={() => setTab(t.key)}
               className={cx(
                 "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition",
-                tab === t ? "bg-raspberry text-white" : "bg-sand text-cocoa/70 hover:bg-raspberry-light"
+                tab === t.key ? "bg-raspberry text-white" : "bg-sand text-cocoa/70 hover:bg-raspberry-light"
               )}
             >
-              {t === "mesa" ? <Armchair size={16} /> : <Bike size={16} />}
-              {t === "mesa" ? `Mesas (${mesas.length})` : `Domicilios (${domicilios.length})`}
+              {t.icon}{t.label(byTipo[t.key].length)}
             </button>
           ))}
         </div>
@@ -85,7 +113,6 @@ export function CocinaBoard() {
       {activos.length === 0 ? (
         <Empty title="Nada en preparación" hint="Las nuevas facturas aparecerán aquí con un aviso sonoro." />
       ) : (
-        // Vista tipo "historias": miniaturas circulares
         <div className="flex flex-wrap gap-4">
           {activos.map((f, i) => (
             <button
@@ -102,14 +129,13 @@ export function CocinaBoard() {
                 </span>
               </span>
               <span className="truncate text-xs font-semibold text-cocoa/80">
-                {f.tipo === "mesa" ? f.mesaNombre : f.clienteNombre}
+                {nombreFactura(f)}
               </span>
             </button>
           ))}
         </div>
       )}
 
-      {/* Visor tipo historia */}
       {storyIdx !== null && activos[storyIdx] && (
         <StoryViewer
           facturas={activos}
@@ -145,9 +171,11 @@ function StoryViewer({
   const prev = () => onIndex(Math.max(0, index - 1));
   const next = () => index < facturas.length - 1 ? onIndex(index + 1) : onClose();
 
+  const esMesaTipo = f.tipo === "mesa" || f.tipo === "reserva-mesa";
+  const tipoLabel = TIPO_LABEL[f.tipo as TabCocina] ?? f.tipo;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-cocoa/70 p-4 backdrop-blur-sm">
-      {/* Barras de progreso tipo historia */}
       <div className="absolute left-1/2 top-6 flex w-full max-w-md -translate-x-1/2 gap-1 px-4">
         {facturas.map((_, i) => (
           <span key={i} className={cx("h-1 flex-1 rounded-full", i <= index ? "bg-white" : "bg-white/30")} />
@@ -162,14 +190,23 @@ function StoryViewer({
         <div className="flex items-center justify-between">
           <div>
             <p className="font-display text-2xl font-black text-cocoa">{folio(f)}</p>
-            <p className="text-sm font-semibold text-cocoa/70">
-              {f.tipo === "mesa" ? f.mesaNombre : f.clienteNombre}
-            </p>
+            <p className="text-sm font-semibold text-cocoa/70">{f.tipo === "mesa" || f.tipo === "reserva-mesa" ? f.mesaNombre : f.clienteNombre}</p>
           </div>
-          <span className={cx("rounded-full px-3 py-1 text-xs font-bold", f.tipo === "mesa" ? "bg-mint/20 text-cocoa" : "bg-raspberry-light text-raspberry-dark")}>
-            {f.tipo === "mesa" ? "Mesa" : "Domicilio"}
+          <span className={cx(
+            "rounded-full px-3 py-1 text-xs font-bold",
+            esMesaTipo ? "bg-mint/20 text-cocoa" : "bg-raspberry-light text-raspberry-dark"
+          )}>
+            {tipoLabel}
           </span>
         </div>
+
+        {/* Fecha de reserva si aplica */}
+        {f.fechaProgramada && (
+          <p className="mt-2 flex items-center gap-1 text-xs font-bold text-raspberry-dark">
+            <CalendarClock size={13} />
+            Reserva para el {f.fechaProgramada}{f.horaReserva ? ` a las ${f.horaReserva}` : ""}
+          </p>
+        )}
 
         <div className="mt-3 flex items-center gap-4 rounded-xl bg-sand/60 px-4 py-2 text-sm font-bold text-cocoa">
           <span className="flex items-center gap-1"><Clock size={15} /> {formatHora12(f.creadoEn)}</span>
@@ -177,7 +214,7 @@ function StoryViewer({
           <span className="flex items-center gap-1 text-raspberry-dark">{horaMas(f.creadoEn, 30)}</span>
         </div>
 
-        {f.tipo === "domicilio" && (
+        {!esMesaTipo && (
           <p className="mt-3 text-sm text-cocoa/70">{f.direccion}{f.barrio ? ` · ${f.barrio}` : ""}</p>
         )}
 

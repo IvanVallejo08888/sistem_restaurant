@@ -79,15 +79,32 @@ create table if not exists facturas (
   despachado        boolean not null default false,
   domiciliario_id   text,
   servida           boolean,
-  -- Reserva: fecha en la que se debe preparar (no aparece en Cocina antes de esa fecha)
-  fecha_programada  date
+  -- Reservas: fecha (YYYY-MM-DD) y hora (HH:MM) en que se prepara el pedido.
+  -- No aparece en Cocina antes de la fecha programada.
+  fecha_programada  date,
+  hora_reserva      text,            -- HH:MM; null si no es reserva
+  -- Favor: tipo especial que salta cocina
+  nombre_favor      text,            -- texto libre del favor
+  medio_transferencia text,          -- 'nequi'|'bancolombia'|'daviplata'; solo si metodo_pago='mixto'
+  descuento_domiciliario numeric,    -- descuento calculado al domiciliario asignado
+  -- Soft delete: no se elimina físicamente, solo se marca con fecha
+  deleted_at        timestamptz      -- null = activo; fecha = eliminada
 );
 
 create index if not exists facturas_local_id_idx on facturas(local_id);
 alter table facturas enable row level security;
 
--- Si la tabla "facturas" ya existía antes de añadir la reserva, agrega la columna:
+-- Migraciones para tablas pre-existentes (ejecutar solo si la tabla ya existía)
 alter table facturas add column if not exists fecha_programada date;
+alter table facturas add column if not exists hora_reserva text;
+alter table facturas add column if not exists nombre_favor text;
+alter table facturas add column if not exists medio_transferencia text;
+alter table facturas add column if not exists descuento_domiciliario numeric;
+alter table facturas add column if not exists deleted_at timestamptz;
+
+-- Los nuevos valores de "tipo" son: 'mesa','domicilio','favor','reserva-domicilio','reserva-mesa'
+-- Los nuevos valores de "metodo_pago" son: 'efectivo','nequi','bancolombia','daviplata','datafono','mixto','domiciliario'
+-- (sin check constraint para no romper datos existentes; la validación ocurre en la app)
 
 create table if not exists gastos (
   id          text primary key,

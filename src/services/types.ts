@@ -42,6 +42,7 @@ export interface DataService {
   // Facturas
   createFactura(d: Omit<Factura, "id" | "creadoEn">): Promise<Factura>;
   updateFactura(id: string, d: Partial<Factura>): Promise<Factura>;
+  deleteFactura(id: string): Promise<void>;
 
   // Gastos
   createGasto(d: Omit<Gasto, "id" | "creadoEn">): Promise<Gasto>;

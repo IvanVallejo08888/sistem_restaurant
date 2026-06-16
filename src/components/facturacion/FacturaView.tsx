@@ -14,8 +14,10 @@ export function FacturaView({ factura }: { factura: Factura }) {
         <p className="text-xs text-cocoa/60">Factura {folio(factura)} · {formatHora12(factura.creadoEn)}</p>
       </div>
       <div className="my-3 border-t border-dashed border-sand" />
-      {factura.tipo === "mesa" ? (
+      {(factura.tipo === "mesa" || factura.tipo === "reserva-mesa") ? (
         <p className="text-sm font-semibold text-cocoa">Mesa: {factura.mesaNombre}</p>
+      ) : factura.tipo === "favor" ? (
+        <p className="text-sm font-semibold text-cocoa">Favor: {factura.nombreFavor}</p>
       ) : (
         <div className="text-sm text-cocoa/80">
           <p className="font-semibold text-cocoa">{factura.clienteNombre}</p>

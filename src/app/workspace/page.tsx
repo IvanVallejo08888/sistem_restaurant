@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ChefHat, ReceiptText, Bike } from "lucide-react";
+import { ChefHat, ReceiptText, Bike, LogOut } from "lucide-react";
 import { useHydrate } from "@/store/useHydrate";
 import { useSession } from "@/store/sessionStore";
 import { useData } from "@/store/dataStore";
@@ -17,7 +17,7 @@ const roles: { rol: Rol; label: string; desc: string; icon: typeof ChefHat; ruta
 export default function WorkspacePage() {
   const ready = useHydrate();
   const router = useRouter();
-  const { kind, localId } = useSession();
+  const { kind, localId, logout } = useSession();
   const local = useData((s) => s.locales.find((l) => l.id === localId));
 
   if (!ready) {
@@ -81,6 +81,16 @@ export default function WorkspacePage() {
           );
         })}
       </section>
+
+      <div className="flex justify-center pb-12">
+        <button
+          onClick={() => { logout(); router.push("/"); }}
+          className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm text-cocoa/50 transition-colors hover:bg-sand hover:text-cocoa/80"
+        >
+          <LogOut size={14} strokeWidth={2} />
+          Salir
+        </button>
+      </div>
     </main>
   );
 }

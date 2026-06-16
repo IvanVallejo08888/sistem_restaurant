@@ -52,9 +52,14 @@ export type MetodoPago =
   | "nequi"
   | "bancolombia"
   | "daviplata"
-  | "datafono";
+  | "datafono"
+  | "mixto"
+  | "domiciliario";
 
-export type TipoFactura = "mesa" | "domicilio";
+// Solo aplica cuando metodoPago === "mixto"
+export type MedioTransferencia = "nequi" | "bancolombia" | "daviplata";
+
+export type TipoFactura = "mesa" | "domicilio" | "favor" | "reserva-domicilio" | "reserva-mesa";
 
 export type EstadoFactura = "pendiente" | "listo" | "completado";
 
@@ -91,13 +96,18 @@ export type Factura = {
   creadoEn: string;
   // Despacho
   despachado: boolean;
-  // Fase 2: asignación de domicilio a un domiciliario
   domiciliarioId?: ID;
-  // Fase 2: mesa ya servida (cajón tipo playlist en despachador)
   servida?: boolean;
-  // Fase 2: reserva de domicilio para preparar en una fecha futura (YYYY-MM-DD).
-  // Mientras la fecha no llegue, no aparece en Cocina.
+  // Reservas: fecha (YYYY-MM-DD) y hora (HH:MM) en que se debe preparar.
+  // No aparece en Cocina antes de la fecha programada.
   fechaProgramada?: string;
+  horaReserva?: string;
+  // Favor: campos específicos del tipo "favor"
+  nombreFavor?: string;
+  medioTransferencia?: MedioTransferencia; // solo si metodoPago === "mixto"
+  descuentoDomiciliario?: number; // descuento calculado al domiciliario asignado
+  // Soft delete: no se elimina físicamente, solo se marca con fecha
+  deletedAt?: string;
 };
 
 export type Rol = "cocina" | "facturacion" | "despachador" | "admin" | "cajero";

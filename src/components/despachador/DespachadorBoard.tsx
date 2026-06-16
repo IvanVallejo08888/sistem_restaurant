@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import {
-  Armchair, Bike, Check, Clock, Users, Plus, Minus, ListMusic,
+  Armchair, Bike, Check, Clock, Users, Plus, Minus, ListMusic, Gift, CalendarClock,
 } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
@@ -15,6 +15,12 @@ import { CompartirFactura } from "@/components/facturacion/CompartirFactura";
 import { Factura } from "@/types";
 
 type Tab = "domicilios" | "mesas" | "domiciliarios";
+
+function nombreParaDespacho(f: Factura): string {
+  if (f.tipo === "favor") return f.nombreFavor ?? "Favor";
+  if (f.tipo === "mesa" || f.tipo === "reserva-mesa") return f.mesaNombre ?? "";
+  return f.clienteNombre ?? "";
+}
 
 export function DespachadorBoard() {
   const localId = useSession((s) => s.localId)!;
@@ -34,9 +40,13 @@ export function DespachadorBoard() {
     [facturas, localId]
   );
 
-  const mesasPendientes = listos.filter((f) => f.tipo === "mesa" && !f.servida);
-  const mesasServidas = listos.filter((f) => f.tipo === "mesa" && f.servida);
-  const domiciliosPend = listos.filter((f) => f.tipo === "domicilio" && !f.domiciliarioId);
+  // Domicilios pendientes de asignar: incluye domicilio, favor y reserva-domicilio
+  const domiciliosPend = listos.filter(
+    (f) => (f.tipo === "domicilio" || f.tipo === "favor" || f.tipo === "reserva-domicilio") && !f.domiciliarioId
+  );
+  // Mesas: incluye mesa y reserva-mesa
+  const mesasPendientes = listos.filter((f) => (f.tipo === "mesa" || f.tipo === "reserva-mesa") && !f.servida);
+  const mesasServidas = listos.filter((f) => (f.tipo === "mesa" || f.tipo === "reserva-mesa") && f.servida);
 
   const completar = (f: Factura) => {
     updateFactura(f.id, { estado: "completado", despachado: true });
@@ -66,17 +76,43 @@ export function DespachadorBoard() {
 
       {tab === "domicilios" && (
         domiciliosPend.length === 0 ? (
-          <Empty title="Sin domicilios por asignar" hint="Aparecerán cuando cocina los marque listos." />
+          <Empty title="Sin domicilios por asignar" hint="Aparecerán cuando cocina los marque listos o al registrar un Favor." />
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {domiciliosPend.map((f) => (
               <Card key={f.id} className="flex flex-col p-5">
                 <div className="flex items-start justify-between">
                   <p className="font-display text-xl font-black text-cocoa">{folio(f)}</p>
-                  <span className="flex items-center gap-1 text-xs font-bold text-cocoa/60"><Clock size={13} /> {formatHora12(f.creadoEn)}</span>
+                  <div className="flex items-center gap-2">
+                    {f.tipo === "favor" && (
+                      <span className="rounded-full bg-pistachio/30 px-2 py-0.5 text-xs font-bold text-cocoa">
+                        <Gift size={10} className="inline" /> Favor
+                      </span>
+                    )}
+                    {f.tipo === "reserva-domicilio" && (
+                      <span className="rounded-full bg-raspberry-light px-2 py-0.5 text-xs font-bold text-raspberry-dark">
+                        <CalendarClock size={10} className="inline" /> Reserva
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1 text-xs font-bold text-cocoa/60">
+                      <Clock size={13} /> {formatHora12(f.creadoEn)}
+                    </span>
+                  </div>
                 </div>
-                <p className="mt-1 font-semibold text-cocoa">{f.clienteNombre}</p>
-                <p className="text-sm text-cocoa/60">{f.direccion}{f.barrio ? ` · ${f.barrio}` : ""}</p>
+                <p className="mt-1 font-semibold text-cocoa">{nombreParaDespacho(f)}</p>
+                {f.tipo !== "favor" && (
+                  <p className="text-sm text-cocoa/60">{f.direccion}{f.barrio ? ` · ${f.barrio}` : ""}</p>
+                )}
+                {f.tipo === "favor" && f.descuentoDomiciliario && f.descuentoDomiciliario > 0 && (
+                  <p className="mt-1 text-xs font-semibold text-raspberry-dark">
+                    Descuento domiciliario: {formatCOP(f.descuentoDomiciliario)}
+                  </p>
+                )}
+                {f.fechaProgramada && (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-cocoa/60">
+                    <CalendarClock size={11} /> {f.fechaProgramada}{f.horaReserva ? ` · ${f.horaReserva}` : ""}
+                  </p>
+                )}
                 <p className="mt-2 text-sm text-cocoa/70">{formatCOP(f.total)}</p>
                 <div className="mt-4 flex gap-2">
                   <Button size="sm" variant="secondary" className="flex-1" onClick={() => setDetalle(f)}>Detalle</Button>
@@ -100,9 +136,23 @@ export function DespachadorBoard() {
                   <Card key={f.id} className="flex flex-col p-5">
                     <div className="flex items-start justify-between">
                       <p className="font-display text-xl font-black text-cocoa">{folio(f)}</p>
-                      <span className="flex items-center gap-1 text-xs font-bold text-cocoa/60"><Clock size={13} /> {formatHora12(f.creadoEn)}</span>
+                      <div className="flex items-center gap-2">
+                        {f.tipo === "reserva-mesa" && (
+                          <span className="rounded-full bg-mint/20 px-2 py-0.5 text-xs font-bold text-cocoa">
+                            <CalendarClock size={10} className="inline" /> Reserva
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1 text-xs font-bold text-cocoa/60">
+                          <Clock size={13} /> {formatHora12(f.creadoEn)}
+                        </span>
+                      </div>
                     </div>
                     <p className="mt-1 font-semibold text-cocoa">{f.mesaNombre}</p>
+                    {f.fechaProgramada && (
+                      <p className="text-xs text-cocoa/60">
+                        <CalendarClock size={11} className="inline mr-1" />{f.fechaProgramada}{f.horaReserva ? ` · ${f.horaReserva}` : ""}
+                      </p>
+                    )}
                     <p className="mt-2 text-sm text-cocoa/70">{f.items.length} ítem(s) · {formatCOP(f.total)}</p>
                     <div className="mt-4 flex gap-2">
                       <Button size="sm" variant="secondary" className="flex-1" onClick={() => setDetalle(f)}>Detalle</Button>
@@ -175,7 +225,7 @@ export function DespachadorBoard() {
         open={!!detalle}
         onClose={() => setDetalle(null)}
         title={`Detalle ${detalle ? folio(detalle) : ""}`}
-        footer={detalle && detalle.tipo === "mesa" ? (
+        footer={detalle && (detalle.tipo === "mesa" || detalle.tipo === "reserva-mesa") ? (
           <Button onClick={() => completar(detalle)}><Check size={16} /> Cerrar mesa</Button>
         ) : undefined}
       >
@@ -260,16 +310,25 @@ function PerfilDomiciliario({
           <table className="w-full text-sm">
             <thead className="bg-sand/60 text-left text-cocoa/70">
               <tr>
-                <th className="px-3 py-2 font-bold">Barrio</th>
+                <th className="px-3 py-2 font-bold">Factura</th>
                 <th className="px-3 py-2 font-bold">Total</th>
+                <th className="px-3 py-2 font-bold">Desc.</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {facturas.map((f) => (
                 <tr key={f.id} className="border-t border-sand">
-                  <td className="px-3 py-2 text-cocoa">{f.barrio || "—"}</td>
+                  <td className="px-3 py-2 text-cocoa">
+                    {folio(f)}
+                    {f.tipo === "favor" && <span className="ml-1 text-xs text-cocoa/50">(Favor)</span>}
+                    <br />
+                    <span className="text-xs text-cocoa/50">{f.barrio || f.nombreFavor || "—"}</span>
+                  </td>
                   <td className="px-3 py-2 font-semibold text-cocoa">{formatCOP(f.total)}</td>
+                  <td className="px-3 py-2 text-raspberry-dark font-semibold">
+                    {f.descuentoDomiciliario ? formatCOP(f.descuentoDomiciliario) : "—"}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-2">
                       <button

@@ -35,6 +35,7 @@ export class HttpService implements DataService {
 
   createFactura(d: Omit<Factura, "id" | "creadoEn">) { return api<Factura>("/facturas", { method: "POST", body: JSON.stringify(d) }); }
   updateFactura(id: string, d: Partial<Factura>) { return api<Factura>(`/facturas/${id}`, { method: "PATCH", body: JSON.stringify(d) }); }
+  deleteFactura(id: string) { return api<void>(`/facturas/${id}`, { method: "DELETE" }); }
 
   createGasto(d: Omit<Gasto, "id" | "creadoEn">) { return api<Gasto>("/gastos", { method: "POST", body: JSON.stringify(d) }); }
   deleteGasto(id: string) { return api<void>(`/gastos/${id}`, { method: "DELETE" }); }
