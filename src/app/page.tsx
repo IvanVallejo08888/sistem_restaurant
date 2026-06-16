@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
-  ChefHat, ReceiptText, Bike, Shield, Wallet, IceCream2,
+  ChefHat, ReceiptText, Bike, Shield,
 } from "lucide-react";
 import { AccessGate } from "@/components/AccessGate";
 import { useHydrate } from "@/store/useHydrate";
@@ -11,11 +12,10 @@ import { Rol } from "@/types";
 const BUSINESS = process.env.NEXT_PUBLIC_BUSINESS_NAME || "Heladería Antojos";
 
 const roles: { rol: Rol; label: string; desc: string; icon: typeof ChefHat; ruta: string; color: string }[] = [
-  { rol: "cocina", label: "Cocina", desc: "Pedidos en preparación", icon: ChefHat, ruta: "/cocina", color: "from-raspberry/10 to-raspberry-light/40" },
   { rol: "facturacion", label: "Facturación", desc: "Crear e historial", icon: ReceiptText, ruta: "/facturacion", color: "from-pistachio/10 to-pistachio/30" },
+  { rol: "cocina", label: "Cocina", desc: "Pedidos en preparación", icon: ChefHat, ruta: "/cocina", color: "from-raspberry/10 to-raspberry-light/40" },
   { rol: "despachador", label: "Despachador", desc: "Entrega de pedidos", icon: Bike, ruta: "/despachador", color: "from-mint/10 to-mint/30" },
   { rol: "admin", label: "Admin", desc: "Configuración general", icon: Shield, ruta: "/admin", color: "from-cocoa/10 to-cocoa/20" },
-  { rol: "cajero", label: "Cajero", desc: "Cuadre de caja", icon: Wallet, ruta: "/cajero", color: "from-raspberry/10 to-sand" },
 ];
 
 export default function Home() {
@@ -27,8 +27,16 @@ export default function Home() {
     <main className="min-h-screen">
       {/* Encabezado */}
       <header className="px-6 pt-12 pb-8 text-center sm:pt-16">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-xl2 bg-raspberry text-white shadow-soft">
-          <IceCream2 size={42} strokeWidth={1.8} />
+        <div className="mx-auto mb-5 flex justify-center animate-logo-float">
+          <div className="relative h-28 w-28 overflow-hidden rounded-full shadow-logo-glow ring-4 ring-raspberry-light/60">
+            <Image
+              src="/logo-original.jpeg"
+              alt="Logo Heladería Antojos"
+              fill
+              className="object-cover"
+              priority
+            />
+          </div>
         </div>
         <p className="font-sans text-xs font-bold uppercase tracking-[0.3em] text-raspberry">
           Sistema de operación

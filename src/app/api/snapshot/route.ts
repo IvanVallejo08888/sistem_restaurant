@@ -22,7 +22,10 @@ export async function GET() {
   ]);
 
   const error = locales.error ?? productos.error ?? domiciliarios.error ?? mesas.error ?? facturas.error ?? gastos.error;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[snapshot] Supabase error:", JSON.stringify(error));
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   const snapshot: Snapshot = {
     locales: locales.data!.map(rowToLocal),
