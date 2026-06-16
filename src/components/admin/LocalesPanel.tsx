@@ -42,8 +42,13 @@ export function LocalesPanel() {
   };
   const confirmarEliminar = async () => {
     if (!editing) return;
-    await removeLocal(editing.id);
-    setOpen(false);
+    try {
+      await removeLocal(editing.id);
+      setOpen(false);
+    } catch {
+      setConfirmando(false);
+      alert("Error al eliminar el local. Intenta de nuevo.");
+    }
   };
 
   return (
