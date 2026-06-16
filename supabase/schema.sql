@@ -103,6 +103,7 @@ create index if not exists facturas_local_id_idx on facturas(local_id);
 alter table facturas enable row level security;
 
 -- Migraciones para tablas pre-existentes (ejecutar solo si la tabla ya existía)
+alter table locales add column if not exists deleted_at timestamptz;
 alter table productos add column if not exists categoria text not null default 'heladeria';
 
 alter table facturas add column if not exists fecha_programada date;

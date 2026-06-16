@@ -10,6 +10,7 @@ export type Local = {
   password: string;
   activo: boolean;
   creadoEn: string;
+  deletedAt?: string;
 };
 
 export type CategoriaProducto = "heladeria" | "comidas-rapidas";

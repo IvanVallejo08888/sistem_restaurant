@@ -22,9 +22,8 @@ export class LocalStorageService implements DataService {
     const s = read();
     return tick({
       ...s,
-      // Excluir facturas con soft delete del estado en memoria
+      locales: s.locales.filter((l) => !l.deletedAt),
       facturas: s.facturas.filter((f) => !f.deletedAt),
-      // Migración: productos existentes sin categoría reciben "heladeria" por defecto
       productos: s.productos.map((p) => ({
         ...p,
         categoria: p.categoria ?? ("heladeria" as const),
@@ -47,7 +46,8 @@ export class LocalStorageService implements DataService {
   }
   async deleteLocal(id: string) {
     const s = read();
-    write({ ...s, locales: s.locales.filter((x) => x.id !== id) });
+    const locales = s.locales.map((x) => (x.id === id ? { ...x, deletedAt: now() } : x));
+    write({ ...s, locales });
     return tick(undefined);
   }
 

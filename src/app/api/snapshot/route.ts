@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const supabase = getSupabase();
   const [locales, productos, domiciliarios, mesas, facturas, gastos] = await Promise.all([
-    supabase.from("locales").select("*"),
+    supabase.from("locales").select("*").is("deleted_at", null),
     supabase.from("productos").select("*"),
     supabase.from("domiciliarios").select("*"),
     supabase.from("mesas").select("*"),

@@ -20,7 +20,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const { error } = await getSupabase()
     .from("locales")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", params.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

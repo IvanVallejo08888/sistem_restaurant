@@ -14,6 +14,7 @@ export const rowToLocal = (r: any): Local => ({
   password: r.password,
   activo: r.activo,
   creadoEn: r.creado_en,
+  deletedAt: r.deleted_at ?? undefined,
 });
 
 export const localToRow = (l: Local) => ({
@@ -23,6 +24,7 @@ export const localToRow = (l: Local) => ({
   password: l.password,
   activo: l.activo,
   creado_en: l.creadoEn,
+  deleted_at: l.deletedAt ?? null,
 });
 
 export const localPatchToRow = (p: Partial<Local>) => {
@@ -31,6 +33,7 @@ export const localPatchToRow = (p: Partial<Local>) => {
   if (p.direccion !== undefined) row.direccion = p.direccion;
   if (p.password !== undefined) row.password = p.password;
   if (p.activo !== undefined) row.activo = p.activo;
+  if (p.deletedAt !== undefined) row.deleted_at = p.deletedAt;
   return row;
 };
 
