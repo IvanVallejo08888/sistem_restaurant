@@ -18,6 +18,7 @@ type DataState = {
   hydrated: boolean;
 
   hydrate: () => Promise<void>;
+  refresh: () => Promise<void>;
 
   addLocal: (d: Omit<Local, "id" | "creadoEn">) => Promise<Local>;
   updateLocal: (id: string, d: Partial<Local>) => Promise<void>;
@@ -58,6 +59,16 @@ export const useData = create<DataState>((set, get) => ({
     if (get().hydrated) return;
     const snap = await dataService.loadAll();
     set({ ...snap, hydrated: true });
+  },
+
+  // Recarga silenciosa: actualiza datos sin bloquear la UI ni reiniciar el estado de sesión.
+  refresh: async () => {
+    try {
+      const snap = await dataService.loadAll();
+      set(snap);
+    } catch {
+      // Silencioso: no interrumpe la UI si la red falla momentáneamente.
+    }
   },
 
   addLocal: async (d) => {
