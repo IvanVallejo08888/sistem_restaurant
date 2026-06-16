@@ -20,6 +20,7 @@ export class HttpService implements DataService {
 
   createLocal(d: Omit<Local, "id" | "creadoEn">) { return api<Local>("/locales", { method: "POST", body: JSON.stringify(d) }); }
   updateLocal(id: string, d: Partial<Local>) { return api<Local>(`/locales/${id}`, { method: "PATCH", body: JSON.stringify(d) }); }
+  deleteLocal(id: string) { return api<void>(`/locales/${id}`, { method: "DELETE" }); }
 
   createProducto(d: Omit<Producto, "id" | "creadoEn">) { return api<Producto>("/productos", { method: "POST", body: JSON.stringify(d) }); }
   updateProducto(id: string, d: Partial<Producto>) { return api<Producto>(`/productos/${id}`, { method: "PATCH", body: JSON.stringify(d) }); }

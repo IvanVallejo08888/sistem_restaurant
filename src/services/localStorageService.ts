@@ -45,6 +45,11 @@ export class LocalStorageService implements DataService {
     write({ ...s, locales });
     return tick(updated);
   }
+  async deleteLocal(id: string) {
+    const s = read();
+    write({ ...s, locales: s.locales.filter((x) => x.id !== id) });
+    return tick(undefined);
+  }
 
   async createProducto(d: Omit<Producto, "id" | "creadoEn">) {
     const s = read();

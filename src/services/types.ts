@@ -23,6 +23,7 @@ export interface DataService {
   // Locales
   createLocal(d: Omit<Local, "id" | "creadoEn">): Promise<Local>;
   updateLocal(id: string, d: Partial<Local>): Promise<Local>;
+  deleteLocal(id: string): Promise<void>;
 
   // Productos
   createProducto(d: Omit<Producto, "id" | "creadoEn">): Promise<Producto>;

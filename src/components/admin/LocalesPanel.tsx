@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Pencil, Power, KeyRound, RotateCcw, Store } from "lucide-react";
+import { Plus, Pencil, Power, KeyRound, RotateCcw, Store, Trash2 } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { localSchema, LocalForm } from "@/schemas";
 import { Button } from "@/components/ui/Button";
@@ -16,25 +16,33 @@ const genPassword = () =>
   Math.random().toString(36).slice(2, 6) + Math.floor(Math.random() * 90 + 10);
 
 export function LocalesPanel() {
-  const { locales, addLocal, updateLocal, toggleLocal } = useData();
+  const { locales, addLocal, updateLocal, toggleLocal, removeLocal } = useData();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Local | null>(null);
+  const [confirmando, setConfirmando] = useState(false);
 
   const form = useForm<LocalForm>({ resolver: zodResolver(localSchema) });
 
   const abrirNuevo = () => {
     setEditing(null);
+    setConfirmando(false);
     form.reset({ nombre: "", direccion: "", password: genPassword() });
     setOpen(true);
   };
   const abrirEditar = (l: Local) => {
     setEditing(l);
+    setConfirmando(false);
     form.reset({ nombre: l.nombre, direccion: l.direccion, password: l.password });
     setOpen(true);
   };
   const onSubmit = (d: LocalForm) => {
     if (editing) updateLocal(editing.id, d);
     else addLocal({ ...d, activo: true });
+    setOpen(false);
+  };
+  const confirmarEliminar = async () => {
+    if (!editing) return;
+    await removeLocal(editing.id);
     setOpen(false);
   };
 
@@ -82,13 +90,35 @@ export function LocalesPanel() {
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => { setOpen(false); setConfirmando(false); }}
         title={editing ? "Editar local" : "Nuevo local"}
         footer={
-          <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={form.handleSubmit(onSubmit)}>Guardar</Button>
-          </>
+          editing ? (
+            confirmando ? (
+              <div className="flex w-full items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-raspberry-dark">¿Eliminar este local?</span>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmando(false)}>No, cancelar</Button>
+                  <Button variant="danger" size="sm" onClick={confirmarEliminar}>Sí, eliminar</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex w-full items-center justify-between gap-2">
+                <Button variant="danger" size="sm" onClick={() => setConfirmando(true)}>
+                  <Trash2 size={14} /> Eliminar local
+                </Button>
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+                  <Button onClick={form.handleSubmit(onSubmit)}>Guardar</Button>
+                </div>
+              </div>
+            )
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button onClick={form.handleSubmit(onSubmit)}>Guardar</Button>
+            </>
+          )
         }
       >
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

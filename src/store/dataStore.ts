@@ -23,6 +23,7 @@ type DataState = {
   addLocal: (d: Omit<Local, "id" | "creadoEn">) => Promise<Local>;
   updateLocal: (id: string, d: Partial<Local>) => Promise<void>;
   toggleLocal: (id: string) => Promise<void>;
+  removeLocal: (id: string) => Promise<void>;
 
   addProducto: (d: Omit<Producto, "id" | "creadoEn">) => Promise<void>;
   updateProducto: (id: string, d: Partial<Producto>) => Promise<void>;
@@ -85,6 +86,10 @@ export const useData = create<DataState>((set, get) => ({
     if (!cur) return;
     const up = await dataService.updateLocal(id, { activo: !cur.activo });
     set((s) => ({ locales: s.locales.map((x) => (x.id === id ? up : x)) }));
+  },
+  removeLocal: async (id) => {
+    await dataService.deleteLocal(id);
+    set((s) => ({ locales: s.locales.filter((x) => x.id !== id) }));
   },
 
   addProducto: async (d) => {
