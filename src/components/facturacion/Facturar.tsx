@@ -11,14 +11,10 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { formatCOP, cx, uid, now } from "@/lib/utils";
-import { subtotalDe, totalDe, metodosPago, metodosPagoFavor } from "@/lib/factura";
+import {
+  subtotalDe, totalDe, metodosPagoOrden, metodosPagoFavor, mediosTransferencia,
+} from "@/lib/factura";
 import { ItemFactura, MetodoPago, MedioTransferencia, TipoFactura } from "@/types";
-
-const MEDIOS_TRANSFERENCIA: { value: MedioTransferencia; label: string }[] = [
-  { value: "nequi", label: "Nequi" },
-  { value: "bancolombia", label: "Bancolombia" },
-  { value: "daviplata", label: "Daviplata" },
-];
 
 export function Facturar() {
   const localId = useSession((s) => s.localId)!;
@@ -36,6 +32,9 @@ export function Facturar() {
   const [items, setItems] = useState<ItemFactura[]>([]);
   const [valorDomicilio, setValorDomicilio] = useState(0);
   const [metodo, setMetodo] = useState<MetodoPago>("efectivo");
+  // Para pago Mixto en órdenes normales:
+  const [valorEfectivo, setValorEfectivo] = useState(0);
+  const [medioOrden, setMedioOrden] = useState<MedioTransferencia | "">("");
 
   // ── estado para reservas ─────────────────────────────────────────────
   const [fechaReserva, setFechaReserva] = useState("");
@@ -48,7 +47,6 @@ export function Facturar() {
     { id: "1", nombre: "", precio: 0 },
   ]);
   const [metodoFavor, setMetodoFavor] = useState<MetodoPago>("efectivo");
-  const [medioTransferencia, setMedioTransferencia] = useState<MedioTransferencia | "">("");
   const [favorValorDom, setFavorValorDom] = useState(0);
 
   const [ok, setOk] = useState(false);
@@ -60,6 +58,8 @@ export function Facturar() {
     () => totalDe(items, esDomicilioTipo ? valorDomicilio : 0),
     [items, valorDomicilio, esDomicilioTipo]
   );
+  // Mixto: transferencia = total - efectivo
+  const valorTransferencia = metodo === "mixto" ? Math.max(0, total - valorEfectivo) : 0;
 
   // ── acciones sobre items ─────────────────────────────────────────────
   const addItem = (it: ItemFactura) =>
@@ -93,6 +93,8 @@ export function Facturar() {
     setItems([]);
     setValorDomicilio(0);
     setMetodo("efectivo");
+    setValorEfectivo(0);
+    setMedioOrden("");
     setCliente({ nombre: "", whatsapp: "", direccion: "", barrio: "" });
     setFechaReserva("");
     setHoraReserva("");
@@ -100,25 +102,30 @@ export function Facturar() {
     setNombreFavor("");
     setItemsFavor([{ id: "1", nombre: "", precio: 0 }]);
     setMetodoFavor("efectivo");
-    setMedioTransferencia("");
     setFavorValorDom(0);
   };
 
   // ── validaciones ──────────────────────────────────────────────────────
   const esMesaTipo = tipo === "mesa" || tipo === "reserva-mesa";
+
+  // Mixto válido: valorEfectivo >= 0, valorEfectivo <= total, y medioOrden seleccionado
+  const mixtoValido =
+    metodo !== "mixto" ||
+    (valorEfectivo >= 0 && valorEfectivo <= total && !!medioOrden);
+
   const puedeRegistrar =
     !!tipo &&
     tipo !== "favor" &&
     items.length > 0 &&
     (esMesaTipo ? !!mesaId : !!cliente.nombre && !!cliente.direccion) &&
-    ((tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? !!fechaReserva : true);
+    ((tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? !!fechaReserva : true) &&
+    mixtoValido;
 
   const itemsFavorValidos = itemsFavor.filter((it) => it.nombre.trim() && it.precio > 0);
   const puedeRegistrarFavor =
     !!nombreFavor.trim() &&
     itemsFavorValidos.length > 0 &&
-    !!metodoFavor &&
-    (metodoFavor !== "mixto" || !!medioTransferencia);
+    !!metodoFavor;
 
   // ── submit normal (mesa/domicilio/reserva-*) ──────────────────────────
   const registrar = () => {
@@ -138,6 +145,10 @@ export function Facturar() {
       valorDomicilio: esDomicilioTipo ? valorDomicilio : undefined,
       items,
       metodoPago: metodo,
+      // Pago mixto
+      valorEfectivo: metodo === "mixto" ? valorEfectivo : undefined,
+      valorTransferencia: metodo === "mixto" ? valorTransferencia : undefined,
+      medioTransferencia: metodo === "mixto" ? (medioOrden as MedioTransferencia) : undefined,
       subtotal,
       total,
       fechaProgramada: (tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? fechaReserva : undefined,
@@ -153,14 +164,15 @@ export function Facturar() {
     if (!puedeRegistrarFavor) return;
     const subtotalFavor = itemsFavorValidos.reduce((s, it) => s + it.precio, 0);
     const totalFavor = subtotalFavor + (favorValorDom || 0);
-    // Lógica de descuento al domiciliario:
-    // "domiciliario" → descuenta productos + domicilio (todo); otro método → solo el valor del domicilio
+    // Descuento al domiciliario:
+    // "domiciliario" → descuenta todo (producto + domicilio) al domiciliario.
+    // otro método → solo se descuenta el domicilio al domiciliario.
     const descuento = metodoFavor === "domiciliario" ? totalFavor : (favorValorDom || 0);
 
     addFactura({
       localId,
       tipo: "favor",
-      estado: "listo", // salta cocina, va directo al despachador
+      estado: "listo",
       despachado: false,
       nombreFavor: nombreFavor.trim(),
       items: itemsFavorValidos.map((it) => ({
@@ -170,7 +182,6 @@ export function Facturar() {
         cantidad: 1,
       })),
       metodoPago: metodoFavor,
-      medioTransferencia: metodoFavor === "mixto" ? (medioTransferencia as MedioTransferencia) : undefined,
       descuentoDomiciliario: descuento > 0 ? descuento : undefined,
       valorDomicilio: favorValorDom > 0 ? favorValorDom : undefined,
       subtotal: subtotalFavor,
@@ -190,40 +201,30 @@ export function Facturar() {
         {ok && <Banner />}
         <h2 className="mb-6 font-display text-2xl font-semibold text-cocoa">¿Qué deseas facturar?</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Mesa */}
           <button
             onClick={() => setTipo("mesa")}
             className="group rounded-xl2 border border-sand bg-gradient-to-br from-mint/10 to-mint/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
           >
-            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-mint shadow-card">
-              <Armchair size={28} />
-            </div>
+            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-mint shadow-card"><Armchair size={28} /></div>
             <p className="font-display text-xl font-semibold text-cocoa">Mesa</p>
             <p className="text-sm text-cocoa/60">Consumo en el local</p>
           </button>
-          {/* Domicilio */}
           <button
             onClick={() => setTipo("domicilio")}
             className="group rounded-xl2 border border-sand bg-gradient-to-br from-raspberry/10 to-raspberry-light/40 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
           >
-            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-raspberry shadow-card">
-              <Bike size={28} />
-            </div>
+            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-raspberry shadow-card"><Bike size={28} /></div>
             <p className="font-display text-xl font-semibold text-cocoa">Domicilio</p>
             <p className="text-sm text-cocoa/60">Entrega a domicilio</p>
           </button>
-          {/* Favor */}
           <button
             onClick={() => setTipo("favor")}
             className="group rounded-xl2 border border-sand bg-gradient-to-br from-pistachio/20 to-pistachio/40 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
           >
-            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-cocoa shadow-card">
-              <Gift size={28} />
-            </div>
+            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-cocoa shadow-card"><Gift size={28} /></div>
             <p className="font-display text-xl font-semibold text-cocoa">Favor</p>
             <p className="text-sm text-cocoa/60">Pedido especial</p>
           </button>
-          {/* Reserva Domicilio */}
           <button
             onClick={() => setTipo("reserva-domicilio")}
             className="group rounded-xl2 border border-sand bg-gradient-to-br from-raspberry/5 to-raspberry-light/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
@@ -234,7 +235,6 @@ export function Facturar() {
             <p className="font-display text-xl font-semibold text-cocoa">Reserva Domicilio</p>
             <p className="text-sm text-cocoa/60">Con fecha y hora</p>
           </button>
-          {/* Reserva Mesa */}
           <button
             onClick={() => setTipo("reserva-mesa")}
             className="group rounded-xl2 border border-sand bg-gradient-to-br from-mint/5 to-pistachio/25 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
@@ -262,15 +262,10 @@ export function Facturar() {
       <div className="mx-auto max-w-xl space-y-5">
         {ok && <Banner />}
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-pistachio/30 px-3 py-1 text-sm font-bold text-cocoa">
-            Favor
-          </span>
-          <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">
-            Cambiar
-          </button>
+          <span className="rounded-full bg-pistachio/30 px-3 py-1 text-sm font-bold text-cocoa">Favor</span>
+          <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">Cambiar</button>
         </div>
 
-        {/* Nombre del favor */}
         <Card className="p-5">
           <Input
             label="Nombre del favor"
@@ -280,7 +275,6 @@ export function Facturar() {
           />
         </Card>
 
-        {/* Productos libres */}
         <Card className="p-5">
           <p className="mb-3 font-bold text-cocoa">Productos</p>
           <div className="space-y-3">
@@ -315,7 +309,6 @@ export function Facturar() {
           </button>
         </Card>
 
-        {/* Valor del domicilio (opcional) */}
         <Card className="p-5">
           <Input
             label="Valor del domicilio (opcional, COP)"
@@ -325,14 +318,13 @@ export function Facturar() {
           />
         </Card>
 
-        {/* Medio de pago */}
         <Card className="p-5">
-          <p className="mb-3 font-bold text-cocoa">Medio de pago</p>
+          <p className="mb-3 font-bold text-cocoa">¿Cómo pagó el producto?</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {metodosPagoFavor.map((m) => (
               <button
                 key={m.value}
-                onClick={() => { setMetodoFavor(m.value); setMedioTransferencia(""); }}
+                onClick={() => setMetodoFavor(m.value)}
                 className={cx(
                   "rounded-xl border px-3 py-2.5 text-sm font-bold transition",
                   metodoFavor === m.value
@@ -344,31 +336,15 @@ export function Facturar() {
               </button>
             ))}
           </div>
-          {/* Sub-selector para Mixto */}
-          {metodoFavor === "mixto" && (
-            <div className="mt-3">
-              <p className="mb-2 text-sm font-semibold text-cocoa/70">¿Por qué medio de transferencia?</p>
-              <div className="flex gap-2">
-                {MEDIOS_TRANSFERENCIA.map((m) => (
-                  <button
-                    key={m.value}
-                    onClick={() => setMedioTransferencia(m.value)}
-                    className={cx(
-                      "rounded-xl border px-3 py-2 text-sm font-bold transition",
-                      medioTransferencia === m.value
-                        ? "border-raspberry bg-raspberry text-white"
-                        : "border-sand bg-white text-cocoa hover:border-raspberry"
-                    )}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <p className="mt-2 text-xs text-cocoa/50">
+            {metodoFavor === "domiciliario"
+              ? "Todo (producto + domicilio) se descuenta al domiciliario en efectivo."
+              : favorValorDom > 0
+              ? "El domicilio se descuenta al domiciliario. El producto es gasto de la empresa."
+              : "El producto se registra como gasto de la empresa en este medio."}
+          </p>
         </Card>
 
-        {/* Resumen + registrar */}
         <Card className="p-5">
           <div className="space-y-1 text-sm">
             <div className="flex justify-between text-cocoa/70">
@@ -404,9 +380,7 @@ export function Facturar() {
       <div className="mx-auto max-w-sm">
         {ok && <Banner />}
         <div className="mb-4 flex items-center gap-2">
-          <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">
-            ← Volver
-          </button>
+          <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">← Volver</button>
           <span className={cx(
             "rounded-full px-3 py-1 text-sm font-bold",
             tipo === "reserva-domicilio" ? "bg-raspberry-light text-raspberry-dark" : "bg-mint/20 text-cocoa"
@@ -416,25 +390,10 @@ export function Facturar() {
         </div>
         <Card className="space-y-4 p-5">
           <p className="font-bold text-cocoa">Selecciona fecha y hora</p>
-          <Input
-            type="date"
-            label="Fecha del pedido"
-            min={hoy}
-            value={fechaReserva}
-            onChange={(e) => setFechaReserva(e.target.value)}
-          />
-          <Input
-            type="time"
-            label="Hora del pedido (opcional)"
-            value={horaReserva}
-            onChange={(e) => setHoraReserva(e.target.value)}
-          />
-          <p className="text-xs text-cocoa/50">
-            El pedido aparecerá en Cocina el día seleccionado.
-          </p>
-          <Button className="w-full" disabled={!fechaReserva} onClick={() => setReservaFechaOk(true)}>
-            Continuar
-          </Button>
+          <Input type="date" label="Fecha del pedido" min={hoy} value={fechaReserva} onChange={(e) => setFechaReserva(e.target.value)} />
+          <Input type="time" label="Hora del pedido (opcional)" value={horaReserva} onChange={(e) => setHoraReserva(e.target.value)} />
+          <p className="text-xs text-cocoa/50">El pedido aparecerá en Cocina el día seleccionado.</p>
+          <Button className="w-full" disabled={!fechaReserva} onClick={() => setReservaFechaOk(true)}>Continuar</Button>
         </Card>
       </div>
     );
@@ -456,12 +415,9 @@ export function Facturar() {
           )}>
             {tipo === "mesa" ? "Mesa" : tipo === "domicilio" ? "Domicilio" : tipo === "reserva-mesa" ? "Reserva Mesa" : "Reserva Domicilio"}
           </span>
-          <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">
-            Cambiar
-          </button>
+          <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">Cambiar</button>
         </div>
 
-        {/* Fecha/hora confirmada para reservas */}
         {(tipo === "reserva-mesa" || tipo === "reserva-domicilio") && fechaReserva && (
           <Card className="flex items-center gap-3 p-4">
             <CalendarClock size={18} className="text-raspberry" />
@@ -469,12 +425,7 @@ export function Facturar() {
               <p className="text-sm font-bold text-cocoa">{fechaReserva}</p>
               {horaReserva && <p className="text-xs text-cocoa/60">{horaReserva} h</p>}
             </div>
-            <button
-              onClick={() => setReservaFechaOk(false)}
-              className="ml-auto text-xs text-cocoa/50 hover:text-raspberry"
-            >
-              Cambiar fecha
-            </button>
+            <button onClick={() => setReservaFechaOk(false)} className="ml-auto text-xs text-cocoa/50 hover:text-raspberry">Cambiar fecha</button>
           </Card>
         )}
 
@@ -482,7 +433,7 @@ export function Facturar() {
           <Card className="p-5">
             <p className="mb-3 font-bold text-cocoa">Selecciona la mesa</p>
             {mesas.length === 0 ? (
-              <p className="text-sm text-cocoa/60">No hay mesas registradas. Pídele al admin que las cree.</p>
+              <p className="text-sm text-cocoa/60">No hay mesas registradas.</p>
             ) : (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {mesas.map((m) => (
@@ -491,9 +442,7 @@ export function Facturar() {
                     onClick={() => setMesaId(m.id)}
                     className={cx(
                       "rounded-xl border px-3 py-3 text-sm font-bold transition",
-                      mesaId === m.id
-                        ? "border-raspberry bg-raspberry text-white"
-                        : "border-sand bg-white text-cocoa hover:border-raspberry"
+                      mesaId === m.id ? "border-raspberry bg-raspberry text-white" : "border-sand bg-white text-cocoa hover:border-raspberry"
                     )}
                   >
                     {m.nombre}
@@ -546,7 +495,7 @@ export function Facturar() {
                     <input
                       value={it.observacion || ""}
                       onChange={(e) => setObs(i, e.target.value)}
-                      placeholder="Observación (ej: sin queso, sin cebolla)"
+                      placeholder="Observación (ej: sin queso)"
                       className="w-full rounded-lg border border-sand bg-vanilla px-3 py-1.5 text-sm focus:border-raspberry focus:outline-none"
                     />
                   </div>
@@ -570,10 +519,10 @@ export function Facturar() {
         <Card className="p-5">
           <p className="mb-3 font-bold text-cocoa">Método de pago</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {metodosPago.map((m) => (
+            {metodosPagoOrden.map((m) => (
               <button
                 key={m.value}
-                onClick={() => setMetodo(m.value)}
+                onClick={() => { setMetodo(m.value); setValorEfectivo(0); setMedioOrden(""); }}
                 className={cx(
                   "rounded-xl border px-3 py-2.5 text-sm font-bold transition",
                   metodo === m.value
@@ -585,6 +534,46 @@ export function Facturar() {
               </button>
             ))}
           </div>
+
+          {/* Sub-panel Mixto */}
+          {metodo === "mixto" && (
+            <div className="mt-4 space-y-3 rounded-xl border border-raspberry/20 bg-raspberry-light/20 p-3">
+              <Input
+                label="Valor en efectivo (COP)"
+                type="number"
+                value={valorEfectivo || ""}
+                onChange={(e) => {
+                  const v = Math.min(Number(e.target.value) || 0, total);
+                  setValorEfectivo(v);
+                }}
+              />
+              <div className="flex items-center justify-between rounded-xl border border-sand bg-white px-4 py-2.5">
+                <span className="text-sm text-cocoa/70">Valor en transferencia</span>
+                <span className="font-bold text-cocoa">{formatCOP(valorTransferencia)}</span>
+              </div>
+              {valorTransferencia > 0 && (
+                <>
+                  <p className="text-sm font-bold text-cocoa/80">¿Por qué medio de transferencia?</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {mediosTransferencia.map((m) => (
+                      <button
+                        key={m.value}
+                        onClick={() => setMedioOrden(m.value)}
+                        className={cx(
+                          "rounded-xl border px-3 py-2 text-sm font-bold transition",
+                          medioOrden === m.value
+                            ? "border-raspberry bg-raspberry text-white"
+                            : "border-sand bg-white text-cocoa hover:border-raspberry"
+                        )}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </Card>
 
         <Card className="p-5">
@@ -596,6 +585,12 @@ export function Facturar() {
             <div className="flex justify-between border-t border-sand pt-2 text-lg font-black text-cocoa">
               <span>Total</span><span>{formatCOP(total)}</span>
             </div>
+            {metodo === "mixto" && total > 0 && (
+              <div className="mt-2 space-y-1 rounded-xl bg-sand/50 px-3 py-2 text-xs text-cocoa/70">
+                <div className="flex justify-between"><span>Efectivo</span><span>{formatCOP(valorEfectivo)}</span></div>
+                <div className="flex justify-between"><span>Transferencia</span><span>{formatCOP(valorTransferencia)}</span></div>
+              </div>
+            )}
           </div>
           <Button className="mt-4 w-full" size="lg" disabled={!puedeRegistrar} onClick={registrar}>
             Registrar factura

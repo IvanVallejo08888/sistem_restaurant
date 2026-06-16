@@ -89,6 +89,9 @@ create table if not exists facturas (
   nombre_favor      text,            -- texto libre del favor
   medio_transferencia text,          -- 'nequi'|'bancolombia'|'daviplata'; solo si metodo_pago='mixto'
   descuento_domiciliario numeric,    -- descuento calculado al domiciliario asignado
+  -- Pago mixto: efectivo + transferencia en la misma factura
+  valor_efectivo    numeric,         -- parte pagada en efectivo (solo cuando metodo_pago='mixto')
+  valor_transferencia numeric,       -- parte pagada por transferencia (solo cuando metodo_pago='mixto')
   -- Validaciones de cocina (persisten en BD para sobrevivir recargas)
   heladeria_lista   boolean not null default false,
   comidas_listas    boolean not null default false,
@@ -110,6 +113,13 @@ alter table facturas add column if not exists descuento_domiciliario numeric;
 alter table facturas add column if not exists deleted_at timestamptz;
 alter table facturas add column if not exists heladeria_lista boolean not null default false;
 alter table facturas add column if not exists comidas_listas boolean not null default false;
+alter table facturas add column if not exists valor_efectivo numeric;
+alter table facturas add column if not exists valor_transferencia numeric;
+
+-- Índices por fecha para que las queries de "hoy" sean eficientes
+create index if not exists facturas_creado_en_idx on facturas(creado_en);
+create index if not exists gastos_creado_en_idx on gastos(creado_en);
+-- medio_transferencia ya cubre nequi | bancolombia | daviplata | datafono (sin check constraint)
 
 -- Los nuevos valores de "tipo" son: 'mesa','domicilio','favor','reserva-domicilio','reserva-mesa'
 -- Los nuevos valores de "metodo_pago" son: 'efectivo','nequi','bancolombia','daviplata','datafono','mixto','domiciliario'

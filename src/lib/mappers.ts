@@ -149,6 +149,8 @@ export const rowToFactura = (r: any): Factura => ({
   nombreFavor: r.nombre_favor ?? undefined,
   medioTransferencia: r.medio_transferencia ?? undefined,
   descuentoDomiciliario: r.descuento_domiciliario != null ? Number(r.descuento_domiciliario) : undefined,
+  valorEfectivo: r.valor_efectivo != null ? Number(r.valor_efectivo) : undefined,
+  valorTransferencia: r.valor_transferencia != null ? Number(r.valor_transferencia) : undefined,
   heladeriaLista: r.heladeria_lista ?? false,
   comidasListas: r.comidas_listas ?? false,
   deletedAt: r.deleted_at ?? undefined,
@@ -180,6 +182,8 @@ export const facturaToRow = (f: Factura) => ({
   nombre_favor: f.nombreFavor ?? null,
   medio_transferencia: f.medioTransferencia ?? null,
   descuento_domiciliario: f.descuentoDomiciliario ?? null,
+  valor_efectivo: f.valorEfectivo ?? null,
+  valor_transferencia: f.valorTransferencia ?? null,
   heladeria_lista: f.heladeriaLista ?? false,
   comidas_listas: f.comidasListas ?? false,
   deleted_at: f.deletedAt ?? null,
@@ -230,6 +234,8 @@ export const facturaPatchToRow = (f: Partial<Factura>) => {
   if (f.nombreFavor !== undefined) row.nombre_favor = f.nombreFavor;
   if (f.medioTransferencia !== undefined) row.medio_transferencia = f.medioTransferencia;
   if (f.descuentoDomiciliario !== undefined) row.descuento_domiciliario = f.descuentoDomiciliario;
+  if (f.valorEfectivo !== undefined) row.valor_efectivo = f.valorEfectivo;
+  if (f.valorTransferencia !== undefined) row.valor_transferencia = f.valorTransferencia;
   if (f.heladeriaLista !== undefined) row.heladeria_lista = f.heladeriaLista;
   if (f.comidasListas !== undefined) row.comidas_listas = f.comidasListas;
   if (f.deletedAt !== undefined) row.deleted_at = f.deletedAt;

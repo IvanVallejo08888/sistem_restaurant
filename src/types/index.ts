@@ -59,8 +59,8 @@ export type MetodoPago =
   | "mixto"
   | "domiciliario";
 
-// Solo aplica cuando metodoPago === "mixto"
-export type MedioTransferencia = "nequi" | "bancolombia" | "daviplata";
+// Aplica cuando metodoPago === "mixto" (en facturas normales y en favor)
+export type MedioTransferencia = "nequi" | "bancolombia" | "daviplata" | "datafono";
 
 export type TipoFactura = "mesa" | "domicilio" | "favor" | "reserva-domicilio" | "reserva-mesa";
 
@@ -109,6 +109,9 @@ export type Factura = {
   nombreFavor?: string;
   medioTransferencia?: MedioTransferencia; // solo si metodoPago === "mixto"
   descuentoDomiciliario?: number; // descuento calculado al domiciliario asignado
+  // Pago mixto (efectivo + transferencia en la misma factura)
+  valorEfectivo?: number;       // parte pagada en efectivo (solo cuando metodoPago === "mixto")
+  valorTransferencia?: number;  // parte pagada por transferencia (solo cuando metodoPago === "mixto")
   // Validaciones de cocina (persisten en Supabase para sobrevivir recargas)
   heladeriaLista?: boolean;  // sección heladería completada por cocina
   comidasListas?: boolean;   // sección comidas rápidas completada por cocina
