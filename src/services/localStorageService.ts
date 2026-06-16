@@ -26,8 +26,8 @@ export class LocalStorageService implements DataService {
       facturas: s.facturas.filter((f) => !f.deletedAt),
       // Migración: productos existentes sin categoría reciben "heladeria" por defecto
       productos: s.productos.map((p) => ({
-        categoria: "heladeria" as const,
         ...p,
+        categoria: p.categoria ?? ("heladeria" as const),
       })),
     });
   }
