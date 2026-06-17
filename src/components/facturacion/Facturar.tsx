@@ -11,6 +11,7 @@ import { CompartirFactura } from "./CompartirFactura";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Modal } from "@/components/ui/Modal";
 import { formatCOP, cx, uid, now } from "@/lib/utils";
 import {
@@ -807,86 +808,88 @@ export function Facturar() {
         )}
 
         <Card className="p-5">
-          <p className="mb-3 font-bold text-cocoa">Aplicar descuento</p>
-          <div className="grid grid-cols-2 gap-2">
-            {tiposAjuste.map((t) => (
-              <button
-                key={t.value}
-                onClick={() => { setTipoDescuento(t.value); setValorDescuentoInput(0); }}
-                className={cx(
-                  "rounded-xl border px-3 py-2.5 text-sm font-bold transition",
-                  tipoDescuento === t.value
-                    ? "border-raspberry bg-raspberry text-white"
-                    : "border-sand bg-white text-cocoa hover:border-raspberry"
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3">
-            {tipoDescuento === "fijo" ? (
-              <Input
-                label="Valor del descuento en COP"
-                type="number"
-                value={valorDescuentoInput || ""}
-                onChange={(e) => setValorDescuentoInput(Number(e.target.value) || 0)}
-              />
-            ) : (
-              <Input
-                label="Porcentaje de descuento"
-                type="number"
-                min={0}
-                max={100}
-                value={valorDescuentoInput || ""}
-                onChange={(e) => setValorDescuentoInput(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
-              />
+          <CollapsibleSection title="Aplicar descuento">
+            <div className="grid grid-cols-2 gap-2">
+              {tiposAjuste.map((t) => (
+                <button
+                  key={t.value}
+                  onClick={() => { setTipoDescuento(t.value); setValorDescuentoInput(0); }}
+                  className={cx(
+                    "rounded-xl border px-3 py-2.5 text-sm font-bold transition",
+                    tipoDescuento === t.value
+                      ? "border-raspberry bg-raspberry text-white"
+                      : "border-sand bg-white text-cocoa hover:border-raspberry"
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3">
+              {tipoDescuento === "fijo" ? (
+                <Input
+                  label="Valor del descuento en COP"
+                  type="number"
+                  value={valorDescuentoInput || ""}
+                  onChange={(e) => setValorDescuentoInput(Number(e.target.value) || 0)}
+                />
+              ) : (
+                <Input
+                  label="Porcentaje de descuento"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={valorDescuentoInput || ""}
+                  onChange={(e) => setValorDescuentoInput(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+                />
+              )}
+            </div>
+            {descuentoAjustado && (
+              <p className="mt-2 text-xs font-semibold text-raspberry-dark">
+                El descuento se ajustó a {formatCOP(subtotalConDomicilio)} porque superaba el total disponible.
+              </p>
             )}
-          </div>
-          {descuentoAjustado && (
-            <p className="mt-2 text-xs font-semibold text-raspberry-dark">
-              El descuento se ajustó a {formatCOP(subtotalConDomicilio)} porque superaba el total disponible.
-            </p>
-          )}
+          </CollapsibleSection>
         </Card>
 
         <Card className="p-5">
-          <p className="mb-3 font-bold text-cocoa">Costo adicional</p>
-          <div className="grid grid-cols-2 gap-2">
-            {tiposAjuste.map((t) => (
-              <button
-                key={t.value}
-                onClick={() => { setTipoCostoAdicional(t.value); setValorCostoAdicionalInput(0); }}
-                className={cx(
-                  "rounded-xl border px-3 py-2.5 text-sm font-bold transition",
-                  tipoCostoAdicional === t.value
-                    ? "border-raspberry bg-raspberry text-white"
-                    : "border-sand bg-white text-cocoa hover:border-raspberry"
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3">
-            {tipoCostoAdicional === "fijo" ? (
-              <Input
-                label="Valor del costo adicional en COP"
-                type="number"
-                value={valorCostoAdicionalInput || ""}
-                onChange={(e) => setValorCostoAdicionalInput(Number(e.target.value) || 0)}
-              />
-            ) : (
-              <Input
-                label="Porcentaje de costo adicional"
-                type="number"
-                min={0}
-                max={100}
-                value={valorCostoAdicionalInput || ""}
-                onChange={(e) => setValorCostoAdicionalInput(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
-              />
-            )}
-          </div>
+          <CollapsibleSection title="Costo adicional">
+            <div className="grid grid-cols-2 gap-2">
+              {tiposAjuste.map((t) => (
+                <button
+                  key={t.value}
+                  onClick={() => { setTipoCostoAdicional(t.value); setValorCostoAdicionalInput(0); }}
+                  className={cx(
+                    "rounded-xl border px-3 py-2.5 text-sm font-bold transition",
+                    tipoCostoAdicional === t.value
+                      ? "border-raspberry bg-raspberry text-white"
+                      : "border-sand bg-white text-cocoa hover:border-raspberry"
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3">
+              {tipoCostoAdicional === "fijo" ? (
+                <Input
+                  label="Valor del costo adicional en COP"
+                  type="number"
+                  value={valorCostoAdicionalInput || ""}
+                  onChange={(e) => setValorCostoAdicionalInput(Number(e.target.value) || 0)}
+                />
+              ) : (
+                <Input
+                  label="Porcentaje de costo adicional"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={valorCostoAdicionalInput || ""}
+                  onChange={(e) => setValorCostoAdicionalInput(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+                />
+              )}
+            </div>
+          </CollapsibleSection>
         </Card>
 
         <Card className="p-5">
