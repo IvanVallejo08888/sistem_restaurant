@@ -384,6 +384,7 @@ export function Facturar() {
                   type="number"
                   value={it.precio || ""}
                   onChange={(e) => updateItemFavor(it.id, "precio", Number(e.target.value) || 0)}
+                  onWheel={(e) => e.currentTarget.blur()}
                   placeholder="Precio"
                   className="w-28 rounded-xl border border-sand bg-vanilla px-3 py-2 text-sm focus:border-raspberry focus:outline-none"
                 />
