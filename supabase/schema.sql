@@ -92,6 +92,10 @@ create table if not exists facturas (
   -- Pago mixto: efectivo + transferencia en la misma factura
   valor_efectivo    numeric,         -- parte pagada en efectivo (solo cuando metodo_pago='mixto')
   valor_transferencia numeric,       -- parte pagada por transferencia (solo cuando metodo_pago='mixto')
+  -- Favor con pago Mixto: combinación elegida y sus valores
+  tipo_mixto_favor  text,            -- 'transferencia-domiciliario'|'efectivo-domiciliario'|'efectivo-transferencia'; solo si tipo='favor' y metodo_pago='mixto'
+  valor_domiciliario_adelantado numeric, -- dinero propio que adelantó el domiciliario
+  efectivo_sobrante_favor numeric,  -- sobrante de efectivo a entregar, calculado al guardar el favor
   -- Validaciones de cocina (persisten en BD para sobrevivir recargas)
   heladeria_lista   boolean not null default false,
   comidas_listas    boolean not null default false,
@@ -116,6 +120,9 @@ alter table facturas add column if not exists heladeria_lista boolean not null d
 alter table facturas add column if not exists comidas_listas boolean not null default false;
 alter table facturas add column if not exists valor_efectivo numeric;
 alter table facturas add column if not exists valor_transferencia numeric;
+alter table facturas add column if not exists tipo_mixto_favor text;
+alter table facturas add column if not exists valor_domiciliario_adelantado numeric;
+alter table facturas add column if not exists efectivo_sobrante_favor numeric;
 
 -- Índices por fecha para que las queries de "hoy" sean eficientes
 create index if not exists facturas_creado_en_idx on facturas(creado_en);

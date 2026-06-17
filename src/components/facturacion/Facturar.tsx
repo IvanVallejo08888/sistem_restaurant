@@ -13,8 +13,9 @@ import { Card } from "@/components/ui/Card";
 import { formatCOP, cx, uid, now } from "@/lib/utils";
 import {
   subtotalDe, totalDe, metodosPagoOrden, metodosPagoFavor, mediosTransferencia,
+  combosMixtoFavor, comboFavorIncluye, calcFavorMixto,
 } from "@/lib/factura";
-import { ItemFactura, MetodoPago, MedioTransferencia, TipoFactura } from "@/types";
+import { ItemFactura, MetodoPago, MedioTransferencia, TipoFactura, TipoMixtoFavor } from "@/types";
 
 export function Facturar() {
   const localId = useSession((s) => s.localId)!;
@@ -48,6 +49,20 @@ export function Facturar() {
   ]);
   const [metodoFavor, setMetodoFavor] = useState<MetodoPago>("efectivo");
   const [favorValorDom, setFavorValorDom] = useState(0);
+  // Para pago Mixto en favores:
+  const [tipoMixtoFavor, setTipoMixtoFavor] = useState<TipoMixtoFavor | "">("");
+  const [favorValorEfectivoMixto, setFavorValorEfectivoMixto] = useState(0);
+  const [favorValorTransferenciaMixto, setFavorValorTransferenciaMixto] = useState(0);
+  const [favorMedioTransferenciaMixto, setFavorMedioTransferenciaMixto] = useState<MedioTransferencia | "">("");
+  const [favorValorAdelantado, setFavorValorAdelantado] = useState(0);
+
+  const resetFavorMixto = () => {
+    setTipoMixtoFavor("");
+    setFavorValorEfectivoMixto(0);
+    setFavorValorTransferenciaMixto(0);
+    setFavorMedioTransferenciaMixto("");
+    setFavorValorAdelantado(0);
+  };
 
   const [ok, setOk] = useState(false);
 
@@ -60,6 +75,12 @@ export function Facturar() {
   );
   // Mixto: transferencia = total - efectivo
   const valorTransferencia = metodo === "mixto" ? Math.max(0, total - valorEfectivo) : 0;
+
+  // Favor con pago Mixto: descuento al domiciliario + sobrante de efectivo según combinación
+  const favorMixtoCalc = useMemo(() => {
+    if (metodoFavor !== "mixto" || !tipoMixtoFavor) return { descuento: 0, sobranteEfectivo: 0 };
+    return calcFavorMixto(tipoMixtoFavor, favorValorDom || 0, favorValorEfectivoMixto, favorValorAdelantado);
+  }, [metodoFavor, tipoMixtoFavor, favorValorDom, favorValorEfectivoMixto, favorValorAdelantado]);
 
   // ── acciones sobre items ─────────────────────────────────────────────
   const addItem = (it: ItemFactura) =>
@@ -103,6 +124,7 @@ export function Facturar() {
     setItemsFavor([{ id: "1", nombre: "", precio: 0 }]);
     setMetodoFavor("efectivo");
     setFavorValorDom(0);
+    resetFavorMixto();
   };
 
   // ── validaciones ──────────────────────────────────────────────────────
@@ -122,10 +144,22 @@ export function Facturar() {
     mixtoValido;
 
   const itemsFavorValidos = itemsFavor.filter((it) => it.nombre.trim() && it.precio > 0);
+
+  // Mixto válido: combinación elegida y todos sus campos de valor presentes
+  const favorMixtoValido =
+    metodoFavor !== "mixto" ||
+    (
+      !!tipoMixtoFavor &&
+      (!comboFavorIncluye(tipoMixtoFavor, "efectivo") || favorValorEfectivoMixto > 0) &&
+      (!comboFavorIncluye(tipoMixtoFavor, "transferencia") || (favorValorTransferenciaMixto > 0 && !!favorMedioTransferenciaMixto)) &&
+      (!comboFavorIncluye(tipoMixtoFavor, "domiciliario") || favorValorAdelantado > 0)
+    );
+
   const puedeRegistrarFavor =
     !!nombreFavor.trim() &&
     itemsFavorValidos.length > 0 &&
-    !!metodoFavor;
+    !!metodoFavor &&
+    favorMixtoValido;
 
   // ── submit normal (mesa/domicilio/reserva-*) ──────────────────────────
   const registrar = () => {
@@ -166,8 +200,16 @@ export function Facturar() {
     const totalFavor = subtotalFavor + (favorValorDom || 0);
     // Descuento al domiciliario:
     // "domiciliario" → descuenta todo (producto + domicilio) al domiciliario.
+    // "mixto" → según la combinación elegida (ver calcFavorMixto).
     // otro método → solo se descuenta el domicilio al domiciliario.
-    const descuento = metodoFavor === "domiciliario" ? totalFavor : (favorValorDom || 0);
+    const esMixtoFavor = metodoFavor === "mixto" && !!tipoMixtoFavor;
+    const descuento = esMixtoFavor
+      ? favorMixtoCalc.descuento
+      : metodoFavor === "domiciliario" ? totalFavor : (favorValorDom || 0);
+    const sobranteFavor = esMixtoFavor ? favorMixtoCalc.sobranteEfectivo : 0;
+    const incluyeEfectivo = esMixtoFavor && comboFavorIncluye(tipoMixtoFavor, "efectivo");
+    const incluyeTransferencia = esMixtoFavor && comboFavorIncluye(tipoMixtoFavor, "transferencia");
+    const incluyeDomiciliario = esMixtoFavor && comboFavorIncluye(tipoMixtoFavor, "domiciliario");
 
     addFactura({
       localId,
@@ -186,6 +228,12 @@ export function Facturar() {
       valorDomicilio: favorValorDom > 0 ? favorValorDom : undefined,
       subtotal: subtotalFavor,
       total: totalFavor,
+      tipoMixtoFavor: esMixtoFavor ? tipoMixtoFavor : undefined,
+      valorEfectivo: incluyeEfectivo ? favorValorEfectivoMixto : undefined,
+      valorTransferencia: incluyeTransferencia ? favorValorTransferenciaMixto : undefined,
+      medioTransferencia: incluyeTransferencia ? (favorMedioTransferenciaMixto as MedioTransferencia) : undefined,
+      valorDomiciliarioAdelantado: incluyeDomiciliario ? favorValorAdelantado : undefined,
+      efectivoSobranteFavor: sobranteFavor > 0 ? sobranteFavor : undefined,
     });
     setOk(true);
     reset();
@@ -256,7 +304,10 @@ export function Facturar() {
   if (tipo === "favor") {
     const subtotalFavor = itemsFavorValidos.reduce((s, it) => s + it.precio, 0);
     const totalFavor = subtotalFavor + (favorValorDom || 0);
-    const descuento = metodoFavor === "domiciliario" ? totalFavor : (favorValorDom || 0);
+    const descuento = metodoFavor === "mixto"
+      ? favorMixtoCalc.descuento
+      : metodoFavor === "domiciliario" ? totalFavor : (favorValorDom || 0);
+    const sobranteFavor = metodoFavor === "mixto" ? favorMixtoCalc.sobranteEfectivo : 0;
 
     return (
       <div className="mx-auto max-w-xl space-y-5">
@@ -324,7 +375,7 @@ export function Facturar() {
             {metodosPagoFavor.map((m) => (
               <button
                 key={m.value}
-                onClick={() => setMetodoFavor(m.value)}
+                onClick={() => { setMetodoFavor(m.value); resetFavorMixto(); }}
                 className={cx(
                   "rounded-xl border px-3 py-2.5 text-sm font-bold transition",
                   metodoFavor === m.value
@@ -339,10 +390,88 @@ export function Facturar() {
           <p className="mt-2 text-xs text-cocoa/50">
             {metodoFavor === "domiciliario"
               ? "Todo (producto + domicilio) se descuenta al domiciliario en efectivo."
+              : metodoFavor === "mixto"
+              ? "El descuento y el sobrante a entregar dependen de la combinación elegida."
               : favorValorDom > 0
               ? "El domicilio se descuenta al domiciliario. El producto es gasto de la empresa."
               : "El producto se registra como gasto de la empresa en este medio."}
           </p>
+
+          {metodoFavor === "mixto" && (
+            <div className="mt-4 space-y-3 rounded-xl border border-raspberry/20 bg-raspberry-light/20 p-3 animate-fade-up">
+              <p className="text-sm font-bold text-cocoa/80">¿Qué combinación de pago fue?</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {combosMixtoFavor.map((c) => (
+                  <button
+                    key={c.value}
+                    onClick={() => {
+                      setTipoMixtoFavor(c.value);
+                      setFavorValorEfectivoMixto(0);
+                      setFavorValorTransferenciaMixto(0);
+                      setFavorMedioTransferenciaMixto("");
+                      setFavorValorAdelantado(0);
+                    }}
+                    className={cx(
+                      "rounded-xl border px-3 py-2 text-sm font-bold transition",
+                      tipoMixtoFavor === c.value
+                        ? "border-raspberry bg-raspberry text-white"
+                        : "border-sand bg-white text-cocoa hover:border-raspberry"
+                    )}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+
+              {tipoMixtoFavor && (
+                <div className="space-y-3 animate-fade-up">
+                  {comboFavorIncluye(tipoMixtoFavor, "efectivo") && (
+                    <Input
+                      label="Valor en efectivo (COP)"
+                      type="number"
+                      value={favorValorEfectivoMixto || ""}
+                      onChange={(e) => setFavorValorEfectivoMixto(Number(e.target.value) || 0)}
+                    />
+                  )}
+                  {comboFavorIncluye(tipoMixtoFavor, "transferencia") && (
+                    <>
+                      <Input
+                        label="Valor en transferencia (COP)"
+                        type="number"
+                        value={favorValorTransferenciaMixto || ""}
+                        onChange={(e) => setFavorValorTransferenciaMixto(Number(e.target.value) || 0)}
+                      />
+                      <p className="text-sm font-bold text-cocoa/80">¿Por qué medio de transferencia?</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {mediosTransferencia.map((m) => (
+                          <button
+                            key={m.value}
+                            onClick={() => setFavorMedioTransferenciaMixto(m.value)}
+                            className={cx(
+                              "rounded-xl border px-3 py-2 text-sm font-bold transition",
+                              favorMedioTransferenciaMixto === m.value
+                                ? "border-raspberry bg-raspberry text-white"
+                                : "border-sand bg-white text-cocoa hover:border-raspberry"
+                            )}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {comboFavorIncluye(tipoMixtoFavor, "domiciliario") && (
+                    <Input
+                      label="Valor pagado por el domiciliario (COP)"
+                      type="number"
+                      value={favorValorAdelantado || ""}
+                      onChange={(e) => setFavorValorAdelantado(Number(e.target.value) || 0)}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </Card>
 
         <Card className="p-5">
@@ -361,6 +490,11 @@ export function Facturar() {
             {descuento > 0 && (
               <div className="mt-1 flex justify-between rounded-xl bg-raspberry-light/40 px-3 py-2 text-sm font-bold text-raspberry-dark">
                 <span>Descuento al domiciliario</span><span>{formatCOP(descuento)}</span>
+              </div>
+            )}
+            {sobranteFavor > 0 && (
+              <div className="mt-1 flex justify-between rounded-xl bg-amber-100 px-3 py-2 text-sm font-bold text-amber-800">
+                <span>Sobrante de efectivo a entregar</span><span>{formatCOP(sobranteFavor)}</span>
               </div>
             )}
           </div>

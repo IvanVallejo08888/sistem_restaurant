@@ -241,11 +241,20 @@ export const cajaPorCategoria = (
 // Total descontado al domiciliario por favores asignados (tipo "favor").
 // Ya viene precalculado en descuentoDomiciliario al registrar el favor:
 // - metodoPago "domiciliario" → descuenta producto + domicilio (el cliente no pagó nada).
+// - metodoPago "mixto" → según la combinación elegida (ver calcFavorMixto en lib/factura).
 // - otro método con domicilio con costo → descuenta solo el costo del envío.
 export const totalFavoresDescontados = (facturasDomiciliario: Factura[]) =>
   facturasDomiciliario
     .filter((f) => f.tipo === "favor")
     .reduce((s, f) => s + (f.descuentoDomiciliario ?? 0), 0);
+
+// Sobrante de efectivo de favores con pago Mixto (combinaciones con "efectivo")
+// que el domiciliario debe entregar a la empresa. Ya viene precalculado en
+// efectivoSobranteFavor al registrar el favor.
+export const totalFavoresSobranteEfectivo = (facturasDomiciliario: Factura[]) =>
+  facturasDomiciliario
+    .filter((f) => f.tipo === "favor")
+    .reduce((s, f) => s + (f.efectivoSobranteFavor ?? 0), 0);
 
 // Efectivo a entregar por un domiciliario. Puede ser negativo: si los
 // descuentos (envíos + favores) superan el efectivo cobrado, es la empresa
@@ -272,6 +281,7 @@ export const efectivoAEntregar = (facturasDomiciliario: Factura[]) => {
       total -= f.valorDomicilio || 0;
     }
   });
+  total += totalFavoresSobranteEfectivo(facturasDomiciliario);
   return total - totalFavoresDescontados(facturasDomiciliario);
 };
 
@@ -306,6 +316,8 @@ export const cuadreDomiciliario = (facturasDomiciliario: Factura[]): CuadreDomic
       descuentoEnvioNormal += costoDomicilio;
     }
   });
+
+  efectivoSobranteMixto += totalFavoresSobranteEfectivo(facturasDomiciliario);
 
   return {
     totalDomicilios: facturasDomiciliario.filter((f) => f.tipo !== "favor").length,

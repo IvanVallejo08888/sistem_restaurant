@@ -154,6 +154,9 @@ export const rowToFactura = (r: any): Factura => ({
   descuentoDomiciliario: r.descuento_domiciliario != null ? Number(r.descuento_domiciliario) : undefined,
   valorEfectivo: r.valor_efectivo != null ? Number(r.valor_efectivo) : undefined,
   valorTransferencia: r.valor_transferencia != null ? Number(r.valor_transferencia) : undefined,
+  tipoMixtoFavor: r.tipo_mixto_favor ?? undefined,
+  valorDomiciliarioAdelantado: r.valor_domiciliario_adelantado != null ? Number(r.valor_domiciliario_adelantado) : undefined,
+  efectivoSobranteFavor: r.efectivo_sobrante_favor != null ? Number(r.efectivo_sobrante_favor) : undefined,
   heladeriaLista: r.heladeria_lista ?? false,
   comidasListas: r.comidas_listas ?? false,
   deletedAt: r.deleted_at ?? undefined,
@@ -187,6 +190,9 @@ export const facturaToRow = (f: Factura) => ({
   descuento_domiciliario: f.descuentoDomiciliario ?? null,
   valor_efectivo: f.valorEfectivo ?? null,
   valor_transferencia: f.valorTransferencia ?? null,
+  tipo_mixto_favor: f.tipoMixtoFavor ?? null,
+  valor_domiciliario_adelantado: f.valorDomiciliarioAdelantado ?? null,
+  efectivo_sobrante_favor: f.efectivoSobranteFavor ?? null,
   heladeria_lista: f.heladeriaLista ?? false,
   comidas_listas: f.comidasListas ?? false,
   deleted_at: f.deletedAt ?? null,
@@ -239,6 +245,9 @@ export const facturaPatchToRow = (f: Partial<Factura>) => {
   if (f.descuentoDomiciliario !== undefined) row.descuento_domiciliario = f.descuentoDomiciliario;
   if (f.valorEfectivo !== undefined) row.valor_efectivo = f.valorEfectivo;
   if (f.valorTransferencia !== undefined) row.valor_transferencia = f.valorTransferencia;
+  if (f.tipoMixtoFavor !== undefined) row.tipo_mixto_favor = f.tipoMixtoFavor;
+  if (f.valorDomiciliarioAdelantado !== undefined) row.valor_domiciliario_adelantado = f.valorDomiciliarioAdelantado;
+  if (f.efectivoSobranteFavor !== undefined) row.efectivo_sobrante_favor = f.efectivoSobranteFavor;
   if (f.heladeriaLista !== undefined) row.heladeria_lista = f.heladeriaLista;
   if (f.comidasListas !== undefined) row.comidas_listas = f.comidasListas;
   if (f.deletedAt !== undefined) row.deleted_at = f.deletedAt;

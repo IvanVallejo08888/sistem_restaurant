@@ -63,6 +63,9 @@ export type MetodoPago =
 // Aplica cuando metodoPago === "mixto" (en facturas normales y en favor)
 export type MedioTransferencia = "nequi" | "bancolombia" | "daviplata" | "datafono";
 
+// Combinación de pago mixto exclusiva de favores (metodoPago === "mixto" && tipo === "favor")
+export type TipoMixtoFavor = "transferencia-domiciliario" | "efectivo-domiciliario" | "efectivo-transferencia";
+
 export type TipoFactura = "mesa" | "domicilio" | "favor" | "reserva-domicilio" | "reserva-mesa";
 
 export type EstadoFactura = "pendiente" | "listo" | "completado";
@@ -110,6 +113,10 @@ export type Factura = {
   nombreFavor?: string;
   medioTransferencia?: MedioTransferencia; // solo si metodoPago === "mixto"
   descuentoDomiciliario?: number; // descuento calculado al domiciliario asignado
+  // Favor con pago Mixto: combinación elegida y sus valores (ver TipoMixtoFavor)
+  tipoMixtoFavor?: TipoMixtoFavor; // solo si tipo === "favor" && metodoPago === "mixto"
+  valorDomiciliarioAdelantado?: number; // dinero propio que adelantó el domiciliario (combos con "domiciliario")
+  efectivoSobranteFavor?: number; // sobrante de efectivo que el domiciliario debe entregar (combos con "efectivo"), calculado al guardar
   // Pago mixto (efectivo + transferencia en la misma factura)
   valorEfectivo?: number;       // parte pagada en efectivo (solo cuando metodoPago === "mixto")
   valorTransferencia?: number;  // parte pagada por transferencia (solo cuando metodoPago === "mixto")
