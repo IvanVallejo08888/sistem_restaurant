@@ -34,6 +34,9 @@ export function DespachadorBoard() {
   const [detalle, setDetalle] = useState<Factura | null>(null);
   const [asignando, setAsignando] = useState<Factura | null>(null);
   const [perfil, setPerfil] = useState<string | null>(null);
+  // Tras asignar domiciliario exitosamente, abre el mismo modal de "Factura
+  // electrónica" reutilizado en Facturación/Historial (Compartir/Descargar PNG).
+  const [facturaAsignada, setFacturaAsignada] = useState<Factura | null>(null);
 
   const listos = useMemo(
     () => facturas.filter((f) => f.localId === localId && f.estado === "listo"),
@@ -244,7 +247,17 @@ export function DespachadorBoard() {
             {domiciliarios.map((d) => (
               <button
                 key={d.id}
-                onClick={() => { if (asignando) asignarDomiciliario(asignando.id, d.id); setAsignando(null); }}
+                onClick={async () => {
+                  if (!asignando) return;
+                  const f = asignando;
+                  setAsignando(null);
+                  try {
+                    await asignarDomiciliario(f.id, d.id);
+                    setFacturaAsignada(f);
+                  } catch (e) {
+                    console.error("No se pudo asignar el domiciliario:", e);
+                  }
+                }}
                 className="flex w-full items-center gap-3 rounded-xl border border-sand bg-white px-4 py-3 text-left transition hover:border-raspberry hover:bg-raspberry-light/30"
               >
                 <div className="h-10 w-10 overflow-hidden rounded-xl bg-sand">
@@ -260,6 +273,14 @@ export function DespachadorBoard() {
             ))}
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={!!facturaAsignada}
+        onClose={() => setFacturaAsignada(null)}
+        title="Factura electrónica"
+      >
+        {facturaAsignada && <CompartirFactura factura={facturaAsignada} />}
       </Modal>
 
       {perfil && (

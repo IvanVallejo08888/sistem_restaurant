@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ProductPicker } from "./ProductPicker";
 import { cx, formatCOP } from "@/lib/utils";
-import { folio, metodosPago, subtotalDe, totalDe } from "@/lib/factura";
-import { Factura, ItemFactura, MetodoPago } from "@/types";
+import { folio, metodosPagoOrden, mediosTransferencia, subtotalDe, totalDe } from "@/lib/factura";
+import { Factura, ItemFactura, MetodoPago, MedioTransferencia } from "@/types";
 
 // Edición inteligente:
 // - Si se agregan productos a una factura ya preparada (estado "listo" o "completado"),
@@ -27,6 +27,9 @@ export function EditarFacturaInteligente({
   const [metodo, setMetodo] = useState<MetodoPago>(factura.metodoPago);
   const [barrio, setBarrio] = useState(factura.barrio || "");
   const [valorDom, setValorDom] = useState(factura.valorDomicilio || 0);
+  // Pago Mixto: carga los valores exactos ya guardados, sin recalcular.
+  const [valorEfectivo, setValorEfectivo] = useState(factura.valorEfectivo ?? 0);
+  const [medioTransferencia, setMedioTransferencia] = useState<MedioTransferencia | "">(factura.medioTransferencia ?? "");
 
   const preparada = factura.estado !== "pendiente";
 
@@ -43,8 +46,12 @@ export function EditarFacturaInteligente({
   const subtotal = subtotalDe(items);
   const esDomicilioTipo = factura.tipo === "domicilio" || factura.tipo === "reserva-domicilio";
   const total = totalDe(items, esDomicilioTipo ? valorDom : 0);
+  // Mixto: transferencia = total - efectivo (igual que en Facturar.tsx)
+  const valorTransferencia = metodo === "mixto" ? Math.max(0, total - valorEfectivo) : 0;
+  const mixtoValido = metodo !== "mixto" || valorTransferencia === 0 || !!medioTransferencia;
 
   const guardar = () => {
+    if (!mixtoValido) return;
     const base: Partial<Factura> = {
       items,
       metodoPago: metodo,
@@ -52,6 +59,9 @@ export function EditarFacturaInteligente({
       valorDomicilio: esDomicilioTipo ? valorDom : undefined,
       subtotal,
       total,
+      valorEfectivo: metodo === "mixto" ? valorEfectivo : undefined,
+      valorTransferencia: metodo === "mixto" ? valorTransferencia : undefined,
+      medioTransferencia: metodo === "mixto" ? (medioTransferencia as MedioTransferencia) : undefined,
     };
 
     if (seAgregaronProductos) {
@@ -75,7 +85,7 @@ export function EditarFacturaInteligente({
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button onClick={guardar}>Guardar</Button>
+          <Button onClick={guardar} disabled={!mixtoValido}>Guardar</Button>
         </>
       }
     >
@@ -133,10 +143,15 @@ export function EditarFacturaInteligente({
         <div>
           <p className="mb-2 text-sm font-bold text-cocoa/80">Método de pago</p>
           <div className="grid grid-cols-3 gap-2">
-            {metodosPago.map((m) => (
+            {metodosPagoOrden.map((m) => (
               <button
                 key={m.value}
-                onClick={() => setMetodo(m.value)}
+                onClick={() => {
+                  if (m.value === metodo) return;
+                  setMetodo(m.value);
+                  setValorEfectivo(0);
+                  setMedioTransferencia("");
+                }}
                 className={cx(
                   "rounded-xl border px-3 py-2 text-sm font-bold transition",
                   metodo === m.value ? "border-raspberry bg-raspberry text-white" : "border-sand bg-white text-cocoa"
@@ -146,6 +161,42 @@ export function EditarFacturaInteligente({
               </button>
             ))}
           </div>
+
+          {metodo === "mixto" && (
+            <div className="mt-4 space-y-3 rounded-xl border border-raspberry/20 bg-raspberry-light/20 p-3 animate-fade-up">
+              <Input
+                label="Valor en efectivo (COP)"
+                type="number"
+                value={valorEfectivo || ""}
+                onChange={(e) => setValorEfectivo(Math.min(Number(e.target.value) || 0, total))}
+              />
+              <div className="flex items-center justify-between rounded-xl border border-sand bg-white px-4 py-2.5">
+                <span className="text-sm text-cocoa/70">Valor en transferencia</span>
+                <span className="font-bold text-cocoa">{formatCOP(valorTransferencia)}</span>
+              </div>
+              {valorTransferencia > 0 && (
+                <>
+                  <p className="text-sm font-bold text-cocoa/80">¿Por qué medio de transferencia?</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {mediosTransferencia.map((m) => (
+                      <button
+                        key={m.value}
+                        onClick={() => setMedioTransferencia(m.value)}
+                        className={cx(
+                          "rounded-xl border px-3 py-2 text-sm font-bold transition",
+                          medioTransferencia === m.value
+                            ? "border-raspberry bg-raspberry text-white"
+                            : "border-sand bg-white text-cocoa hover:border-raspberry"
+                        )}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {factura.tipo === "domicilio" && (

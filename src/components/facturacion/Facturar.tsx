@@ -1,21 +1,23 @@
 "use client";
 import { useMemo, useState } from "react";
 import {
-  Trash2, MessageSquarePlus, Armchair, Bike, Check,
+  Trash2, MessageSquarePlus, Armchair, Bike,
   Gift, CalendarClock, Plus, CircleAlert,
 } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { ProductPicker } from "./ProductPicker";
+import { CompartirFactura } from "./CompartirFactura";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
 import { formatCOP, cx, uid, now } from "@/lib/utils";
 import {
   subtotalDe, totalDe, metodosPagoOrden, metodosPagoFavor, mediosTransferencia,
   combosMixtoFavor, comboFavorIncluye, calcFavorMixto,
 } from "@/lib/factura";
-import { ItemFactura, MetodoPago, MedioTransferencia, TipoFactura, TipoMixtoFavor } from "@/types";
+import { Factura, ItemFactura, MetodoPago, MedioTransferencia, TipoFactura, TipoMixtoFavor } from "@/types";
 
 export function Facturar() {
   const localId = useSession((s) => s.localId)!;
@@ -64,13 +66,20 @@ export function Facturar() {
     setFavorValorAdelantado(0);
   };
 
-  const [ok, setOk] = useState(false);
   // Causa raíz del bug "Favor no aparece en Despachador": registrar()/registrarFavor()
   // llamaban a addFactura() sin esperar el resultado ni capturar errores, así que si el
   // insert a Supabase fallaba (p. ej. columna inexistente) la UI igual mostraba éxito y
   // limpiaba el formulario, dando la falsa impresión de que la factura se había guardado.
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  // Factura recién creada: el modal de "Factura electrónica" sirve como confirmación
+  // visual de éxito (reemplaza al antiguo Banner) y permite compartir/descargar de inmediato.
+  // El formulario solo se limpia al cerrar este modal, no antes.
+  const [facturaCreada, setFacturaCreada] = useState<Factura | null>(null);
+  const cerrarFacturaCreada = () => {
+    setFacturaCreada(null);
+    reset();
+  };
 
   // ── cálculos ──────────────────────────────────────────────────────────
   const subtotal = useMemo(() => subtotalDe(items), [items]);
@@ -195,7 +204,7 @@ export function Facturar() {
     setError(null);
     setGuardando(true);
     try {
-      await addFactura({
+      const nueva = await addFactura({
         localId,
         tipo,
         estado: "pendiente",
@@ -218,9 +227,7 @@ export function Facturar() {
         fechaProgramada: (tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? fechaReserva : undefined,
         horaReserva: (tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? (horaReserva || undefined) : undefined,
       });
-      setOk(true);
-      reset();
-      setTimeout(() => setOk(false), 2500);
+      setFacturaCreada(nueva);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo registrar la factura.");
     } finally {
@@ -248,7 +255,7 @@ export function Facturar() {
     setError(null);
     setGuardando(true);
     try {
-      await addFactura({
+      const nueva = await addFactura({
         localId,
         tipo: "favor",
         estado: "listo",
@@ -272,9 +279,7 @@ export function Facturar() {
         valorDomiciliarioAdelantado: incluyeDomiciliario ? favorValorAdelantadoCalculado : undefined,
         efectivoSobranteFavor: sobranteFavor > 0 ? sobranteFavor : undefined,
       });
-      setOk(true);
-      reset();
-      setTimeout(() => setOk(false), 2500);
+      setFacturaCreada(nueva);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo registrar el favor.");
     } finally {
@@ -288,7 +293,6 @@ export function Facturar() {
   if (!tipo) {
     return (
       <div className="mx-auto max-w-2xl">
-        {ok && <Banner />}
         {error && <ErrorBanner mensaje={error} />}
         <h2 className="mb-6 font-display text-2xl font-semibold text-cocoa">¿Qué deseas facturar?</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -353,8 +357,10 @@ export function Facturar() {
 
     return (
       <div className="mx-auto max-w-xl space-y-5">
-        {ok && <Banner />}
         {error && <ErrorBanner mensaje={error} />}
+        <Modal open={!!facturaCreada} onClose={cerrarFacturaCreada} title="Factura electrónica">
+          {facturaCreada && <CompartirFactura factura={facturaCreada} />}
+        </Modal>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-pistachio/30 px-3 py-1 text-sm font-bold text-cocoa">Favor</span>
           <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">Cambiar</button>
@@ -561,7 +567,6 @@ export function Facturar() {
   if ((tipo === "reserva-domicilio" || tipo === "reserva-mesa") && !reservaFechaOk) {
     return (
       <div className="mx-auto max-w-sm">
-        {ok && <Banner />}
         {error && <ErrorBanner mensaje={error} />}
         <div className="mb-4 flex items-center gap-2">
           <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">← Volver</button>
@@ -588,8 +593,10 @@ export function Facturar() {
   // ══════════════════════════════════════════════════════════════════════
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      {ok && <div className="lg:col-span-2"><Banner /></div>}
       {error && <div className="lg:col-span-2"><ErrorBanner mensaje={error} /></div>}
+      <Modal open={!!facturaCreada} onClose={cerrarFacturaCreada} title="Factura electrónica">
+        {facturaCreada && <CompartirFactura factura={facturaCreada} />}
+      </Modal>
 
       {/* Columna izquierda */}
       <div className="space-y-5">
@@ -782,14 +789,6 @@ export function Facturar() {
           </Button>
         </Card>
       </div>
-    </div>
-  );
-}
-
-function Banner() {
-  return (
-    <div className="mb-2 flex items-center gap-2 rounded-xl bg-pistachio/30 px-4 py-3 font-bold text-cocoa animate-fade-up">
-      <Check size={18} /> Factura registrada correctamente.
     </div>
   );
 }

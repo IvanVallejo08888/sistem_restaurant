@@ -1,10 +1,11 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Search, Eye, Pencil, Trash2, Armchair, Bike, Gift, CalendarClock } from "lucide-react";
+import { Search, Eye, Pencil, Trash2, Armchair, Bike, Gift, CalendarClock, CalendarDays } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { normalize, formatCOP, formatHora12, cx } from "@/lib/utils";
 import { folio, labelMetodo } from "@/lib/factura";
+import { esDeHoy } from "@/lib/reportes";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -35,13 +36,16 @@ export function Historial() {
 
   const [tab, setTab] = useState<TipoFactura>("mesa");
   const [q, setQ] = useState("");
+  // Por defecto el historial solo muestra las facturas de hoy; el toggle
+  // permite ver el histórico completo del local cuando se necesite buscar algo más viejo.
+  const [soloHoy, setSoloHoy] = useState(true);
   const [ver, setVer] = useState<Factura | null>(null);
   const [editar, setEditar] = useState<Factura | null>(null);
   const [eliminar, setEliminar] = useState<Factura | null>(null);
 
   const lista = useMemo(() => {
     const base = facturas
-      .filter((f) => f.tipo === tab)
+      .filter((f) => f.tipo === tab && (!soloHoy || esDeHoy(f.creadoEn)))
       .sort((a, b) => +new Date(b.creadoEn) - +new Date(a.creadoEn));
     if (!q) return base;
     const nq = normalize(q);
@@ -50,7 +54,7 @@ export function Historial() {
       normalize(nombreFactura(f)).includes(nq) ||
       normalize(f.barrio || "").includes(nq)
     );
-  }, [facturas, tab, q]);
+  }, [facturas, tab, q, soloHoy]);
 
   return (
     <div>
@@ -71,19 +75,33 @@ export function Historial() {
             </button>
           ))}
         </div>
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-cocoa/40" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar…"
-            className="rounded-full border border-sand bg-white py-2 pl-9 pr-4 text-sm focus:border-raspberry focus:outline-none"
-          />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSoloHoy((v) => !v)}
+            className={cx(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition",
+              soloHoy ? "bg-raspberry text-white" : "bg-sand text-cocoa/70 hover:bg-raspberry-light"
+            )}
+          >
+            <CalendarDays size={14} /> {soloHoy ? "Hoy" : "Todo el historial"}
+          </button>
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-cocoa/40" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar…"
+              className="rounded-full border border-sand bg-white py-2 pl-9 pr-4 text-sm focus:border-raspberry focus:outline-none"
+            />
+          </div>
         </div>
       </div>
 
       {lista.length === 0 ? (
-        <Empty title="Sin facturas" hint="Las facturas registradas aparecerán aquí." />
+        <Empty
+          title={soloHoy ? "No hay facturas registradas hoy." : "Sin facturas"}
+          hint={soloHoy ? "Toca \"Hoy\" arriba para ver el historial completo." : "Las facturas registradas aparecerán aquí."}
+        />
       ) : (
         <div className="grid gap-3">
           {lista.map((f) => (
