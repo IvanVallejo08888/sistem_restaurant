@@ -22,6 +22,7 @@ import { Empty } from "@/components/ui/Empty";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Confirm } from "@/components/ui/Confirm";
+import { ReporteDelDiaButton } from "@/components/reportes/ReporteDelDiaButton";
 import { Factura, Gasto, MetodoPago } from "@/types";
 
 // ── Componente expandible reutilizable ────────────────────────────────────────
@@ -115,7 +116,9 @@ function DesgloseMétodos({ resumen, signo }: {
 
 // Card del saldo final de un domiciliario: positivo = debe entregar efectivo,
 // negativo = la empresa le debe a él (los descuentos superaron lo cobrado), cero = sin transferencia.
-function SaldoDomiciliarioCard({ saldo, size = "sm" }: { saldo: number; size?: "sm" | "lg" }) {
+// Exportado para reutilizarse tal cual en ReporteDelDia (debe mostrar
+// exactamente el mismo saldo que "Cuadre por domiciliario" aquí abajo).
+export function SaldoDomiciliarioCard({ saldo, size = "sm" }: { saldo: number; size?: "sm" | "lg" }) {
   const padding = size === "lg" ? "px-5 py-4" : "px-4 py-3";
   const valueCls = size === "lg" ? "text-2xl" : "text-lg";
 
@@ -383,6 +386,10 @@ export function CajeroBoard() {
           onClose={() => setPerfil(null)}
         />
       )}
+
+      <div className="flex justify-center">
+        <ReporteDelDiaButton localId={localId} />
+      </div>
     </div>
   );
 }

@@ -23,6 +23,8 @@ import { Modal } from "@/components/ui/Modal";
 import { Confirm } from "@/components/ui/Confirm";
 import { gastoSchema, GastoForm } from "@/schemas";
 import { Gasto, MetodoPago } from "@/types";
+import { ReporteMensualButton } from "@/components/reportes/ReporteMensualButton";
+import { ReporteDelDiaButton } from "@/components/reportes/ReporteDelDiaButton";
 
 export function ReportesPanel() {
   const locales = useData((s) => s.locales);
@@ -51,6 +53,10 @@ export function ReportesPanel() {
             {abierto === l.id && <ReporteLocal localId={l.id} />}
           </Card>
         ))}
+      </div>
+
+      <div className="mt-6 flex justify-center">
+        <ReporteMensualButton label="Reporte del mes (todos los locales)" />
       </div>
     </div>
   );
@@ -225,6 +231,11 @@ function ReporteLocal({ localId }: { localId: string }) {
         <Seccion icon={<Package size={16} />} titulo="Menos vendidos">
           <BarChart data={menosVendidos.map((p) => ({ label: p.nombre, value: p.unidades }))} />
         </Seccion>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <ReporteMensualButton localId={localId} />
+        <ReporteDelDiaButton localId={localId} />
       </div>
 
       {/* Nuevo gasto */}

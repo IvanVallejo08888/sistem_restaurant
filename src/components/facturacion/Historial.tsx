@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Search, Eye, Pencil, Trash2, Armchair, Bike, Mail, Gift, CalendarClock, CalendarDays } from "lucide-react";
+import { Search, Eye, Pencil, Trash2, Armchair, Bike, Mail, Gift, CalendarClock, CalendarDays, CircleAlert } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { normalize, formatCOP, formatHora12, cx } from "@/lib/utils";
@@ -44,6 +44,16 @@ export function Historial() {
   const [ver, setVer] = useState<Factura | null>(null);
   const [editar, setEditar] = useState<Factura | null>(null);
   const [eliminar, setEliminar] = useState<Factura | null>(null);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+
+  const confirmarEliminar = async () => {
+    if (!eliminar) return;
+    try {
+      await removeFactura(eliminar.id);
+    } catch (e) {
+      setErrorEliminar(e instanceof Error ? e.message : "No se pudo eliminar la factura.");
+    }
+  };
 
   const lista = useMemo(() => {
     const base = facturas
@@ -60,6 +70,11 @@ export function Historial() {
 
   return (
     <div>
+      {errorEliminar && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-100 px-4 py-3 font-bold text-red-700 animate-fade-up">
+          <CircleAlert size={18} /> No se pudo eliminar: {errorEliminar}
+        </div>
+      )}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           {TABS.map((t) => (
@@ -131,7 +146,7 @@ export function Historial() {
                   <Pencil size={14} /> Editar
                 </Button>
                 {/* TODO: restringir a roles admin/supervisor cuando se implemente sistema de permisos */}
-                <Button size="sm" variant="danger" onClick={() => setEliminar(f)}>
+                <Button size="sm" variant="danger" onClick={() => { setEliminar(f); setErrorEliminar(null); }}>
                   <Trash2 size={14} /> Eliminar
                 </Button>
               </div>
@@ -154,7 +169,7 @@ export function Historial() {
       <Confirm
         open={!!eliminar}
         onClose={() => setEliminar(null)}
-        onConfirm={() => { if (eliminar) removeFactura(eliminar.id); }}
+        onConfirm={confirmarEliminar}
         title="Eliminar factura"
         message={`¿Estás seguro de que deseas eliminar la factura ${eliminar ? folio(eliminar) : ""}? Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar"

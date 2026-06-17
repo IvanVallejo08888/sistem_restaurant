@@ -17,7 +17,11 @@ export async function GET() {
     supabase.from("productos").select("*"),
     supabase.from("domiciliarios").select("*"),
     supabase.from("mesas").select("*"),
-    supabase.from("facturas").select("*"),
+    // Las facturas "canceladas" (deleted_at no nulo) no deben aparecer en ningún
+    // flujo operativo (Cocina, Despachador, Cajero, Historial); solo el reporte
+    // mensual las consulta aparte, directo a Supabase, para mostrarlas como
+    // "Cancelada" en el histórico sin que reaparezcan en el resto de la app.
+    supabase.from("facturas").select("*").is("deleted_at", null),
     supabase.from("gastos").select("*"),
     supabase.from("recomendaciones").select("*"),
   ]);
