@@ -11,7 +11,13 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
-  if (!res.ok) throw new Error(`API ${path} → ${res.status}`);
+  if (!res.ok) {
+    // Las API routes devuelven { error: string } con el mensaje real de Supabase
+    // (p. ej. "columna no encontrada"); propagarlo en vez de un código HTTP genérico
+    // permite mostrarlo al usuario en vez de fallar en silencio.
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `API ${path} → ${res.status}`);
+  }
   return res.json() as Promise<T>;
 }
 

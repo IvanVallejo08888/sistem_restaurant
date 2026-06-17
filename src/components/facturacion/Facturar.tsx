@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import {
   Trash2, MessageSquarePlus, Armchair, Bike, Check,
-  Gift, CalendarClock, Plus,
+  Gift, CalendarClock, Plus, CircleAlert,
 } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
@@ -65,6 +65,12 @@ export function Facturar() {
   };
 
   const [ok, setOk] = useState(false);
+  // Causa raíz del bug "Favor no aparece en Despachador": registrar()/registrarFavor()
+  // llamaban a addFactura() sin esperar el resultado ni capturar errores, así que si el
+  // insert a Supabase fallaba (p. ej. columna inexistente) la UI igual mostraba éxito y
+  // limpiaba el formulario, dando la falsa impresión de que la factura se había guardado.
+  const [error, setError] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
 
   // ── cálculos ──────────────────────────────────────────────────────────
   const subtotal = useMemo(() => subtotalDe(items), [items]);
@@ -119,6 +125,7 @@ export function Facturar() {
     setMetodoFavor("efectivo");
     setFavorValorDom(0);
     resetFavorMixto();
+    setError(null);
   };
 
   // ── validaciones ──────────────────────────────────────────────────────
@@ -182,40 +189,48 @@ export function Facturar() {
     favorMixtoValido;
 
   // ── submit normal (mesa/domicilio/reserva-*) ──────────────────────────
-  const registrar = () => {
-    if (!tipo || tipo === "favor" || !puedeRegistrar) return;
+  const registrar = async () => {
+    if (!tipo || tipo === "favor" || !puedeRegistrar || guardando) return;
     const mesa = mesas.find((m) => m.id === mesaId);
-    addFactura({
-      localId,
-      tipo,
-      estado: "pendiente",
-      despachado: false,
-      mesaId: esMesaTipo ? mesaId : undefined,
-      mesaNombre: esMesaTipo ? mesa?.nombre : undefined,
-      clienteNombre: esDomicilioTipo ? cliente.nombre : undefined,
-      clienteWhatsapp: esDomicilioTipo ? cliente.whatsapp : undefined,
-      direccion: esDomicilioTipo ? cliente.direccion : undefined,
-      barrio: esDomicilioTipo ? cliente.barrio : undefined,
-      valorDomicilio: esDomicilioTipo ? valorDomicilio : undefined,
-      items,
-      metodoPago: metodo,
-      // Pago mixto
-      valorEfectivo: metodo === "mixto" ? valorEfectivo : undefined,
-      valorTransferencia: metodo === "mixto" ? valorTransferencia : undefined,
-      medioTransferencia: metodo === "mixto" ? (medioOrden as MedioTransferencia) : undefined,
-      subtotal,
-      total,
-      fechaProgramada: (tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? fechaReserva : undefined,
-      horaReserva: (tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? (horaReserva || undefined) : undefined,
-    });
-    setOk(true);
-    reset();
-    setTimeout(() => setOk(false), 2500);
+    setError(null);
+    setGuardando(true);
+    try {
+      await addFactura({
+        localId,
+        tipo,
+        estado: "pendiente",
+        despachado: false,
+        mesaId: esMesaTipo ? mesaId : undefined,
+        mesaNombre: esMesaTipo ? mesa?.nombre : undefined,
+        clienteNombre: esDomicilioTipo ? cliente.nombre : undefined,
+        clienteWhatsapp: esDomicilioTipo ? cliente.whatsapp : undefined,
+        direccion: esDomicilioTipo ? cliente.direccion : undefined,
+        barrio: esDomicilioTipo ? cliente.barrio : undefined,
+        valorDomicilio: esDomicilioTipo ? valorDomicilio : undefined,
+        items,
+        metodoPago: metodo,
+        // Pago mixto
+        valorEfectivo: metodo === "mixto" ? valorEfectivo : undefined,
+        valorTransferencia: metodo === "mixto" ? valorTransferencia : undefined,
+        medioTransferencia: metodo === "mixto" ? (medioOrden as MedioTransferencia) : undefined,
+        subtotal,
+        total,
+        fechaProgramada: (tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? fechaReserva : undefined,
+        horaReserva: (tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? (horaReserva || undefined) : undefined,
+      });
+      setOk(true);
+      reset();
+      setTimeout(() => setOk(false), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo registrar la factura.");
+    } finally {
+      setGuardando(false);
+    }
   };
 
   // ── submit favor ──────────────────────────────────────────────────────
-  const registrarFavor = () => {
-    if (!puedeRegistrarFavor) return;
+  const registrarFavor = async () => {
+    if (!puedeRegistrarFavor || guardando) return;
     const totalFavor = subtotalFavor + (favorValorDom || 0);
     // Descuento al domiciliario:
     // "domiciliario" → descuenta todo (producto + domicilio) al domiciliario.
@@ -230,33 +245,41 @@ export function Facturar() {
     const incluyeTransferencia = esMixtoFavor && comboFavorIncluye(tipoMixtoFavor, "transferencia");
     const incluyeDomiciliario = esMixtoFavor && comboFavorIncluye(tipoMixtoFavor, "domiciliario");
 
-    addFactura({
-      localId,
-      tipo: "favor",
-      estado: "listo",
-      despachado: false,
-      nombreFavor: nombreFavor.trim(),
-      items: itemsFavorValidos.map((it) => ({
-        productoId: uid(),
-        nombre: it.nombre.trim(),
-        valor: it.precio,
-        cantidad: 1,
-      })),
-      metodoPago: metodoFavor,
-      descuentoDomiciliario: descuento > 0 ? descuento : undefined,
-      valorDomicilio: favorValorDom > 0 ? favorValorDom : undefined,
-      subtotal: subtotalFavor,
-      total: totalFavor,
-      tipoMixtoFavor: esMixtoFavor ? tipoMixtoFavor : undefined,
-      valorEfectivo: incluyeEfectivo ? favorValorEfectivoMixto : undefined,
-      valorTransferencia: incluyeTransferencia ? favorValorTransferenciaCalculado : undefined,
-      medioTransferencia: incluyeTransferencia ? (favorMedioTransferenciaMixto as MedioTransferencia) : undefined,
-      valorDomiciliarioAdelantado: incluyeDomiciliario ? favorValorAdelantadoCalculado : undefined,
-      efectivoSobranteFavor: sobranteFavor > 0 ? sobranteFavor : undefined,
-    });
-    setOk(true);
-    reset();
-    setTimeout(() => setOk(false), 2500);
+    setError(null);
+    setGuardando(true);
+    try {
+      await addFactura({
+        localId,
+        tipo: "favor",
+        estado: "listo",
+        despachado: false,
+        nombreFavor: nombreFavor.trim(),
+        items: itemsFavorValidos.map((it) => ({
+          productoId: uid(),
+          nombre: it.nombre.trim(),
+          valor: it.precio,
+          cantidad: 1,
+        })),
+        metodoPago: metodoFavor,
+        descuentoDomiciliario: descuento > 0 ? descuento : undefined,
+        valorDomicilio: favorValorDom > 0 ? favorValorDom : undefined,
+        subtotal: subtotalFavor,
+        total: totalFavor,
+        tipoMixtoFavor: esMixtoFavor ? tipoMixtoFavor : undefined,
+        valorEfectivo: incluyeEfectivo ? favorValorEfectivoMixto : undefined,
+        valorTransferencia: incluyeTransferencia ? favorValorTransferenciaCalculado : undefined,
+        medioTransferencia: incluyeTransferencia ? (favorMedioTransferenciaMixto as MedioTransferencia) : undefined,
+        valorDomiciliarioAdelantado: incluyeDomiciliario ? favorValorAdelantadoCalculado : undefined,
+        efectivoSobranteFavor: sobranteFavor > 0 ? sobranteFavor : undefined,
+      });
+      setOk(true);
+      reset();
+      setTimeout(() => setOk(false), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo registrar el favor.");
+    } finally {
+      setGuardando(false);
+    }
   };
 
   // ══════════════════════════════════════════════════════════════════════
@@ -266,6 +289,7 @@ export function Facturar() {
     return (
       <div className="mx-auto max-w-2xl">
         {ok && <Banner />}
+        {error && <ErrorBanner mensaje={error} />}
         <h2 className="mb-6 font-display text-2xl font-semibold text-cocoa">¿Qué deseas facturar?</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <button
@@ -330,6 +354,7 @@ export function Facturar() {
     return (
       <div className="mx-auto max-w-xl space-y-5">
         {ok && <Banner />}
+        {error && <ErrorBanner mensaje={error} />}
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-pistachio/30 px-3 py-1 text-sm font-bold text-cocoa">Favor</span>
           <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">Cambiar</button>
@@ -521,8 +546,8 @@ export function Facturar() {
               </div>
             )}
           </div>
-          <Button className="mt-4 w-full" size="lg" disabled={!puedeRegistrarFavor} onClick={registrarFavor}>
-            Registrar favor
+          <Button className="mt-4 w-full" size="lg" disabled={!puedeRegistrarFavor || guardando} onClick={registrarFavor}>
+            {guardando ? "Guardando…" : "Registrar favor"}
           </Button>
         </Card>
       </div>
@@ -536,6 +561,7 @@ export function Facturar() {
     return (
       <div className="mx-auto max-w-sm">
         {ok && <Banner />}
+        {error && <ErrorBanner mensaje={error} />}
         <div className="mb-4 flex items-center gap-2">
           <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">← Volver</button>
           <span className={cx(
@@ -562,6 +588,7 @@ export function Facturar() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {ok && <div className="lg:col-span-2"><Banner /></div>}
+      {error && <div className="lg:col-span-2"><ErrorBanner mensaje={error} /></div>}
 
       {/* Columna izquierda */}
       <div className="space-y-5">
@@ -749,8 +776,8 @@ export function Facturar() {
               </div>
             )}
           </div>
-          <Button className="mt-4 w-full" size="lg" disabled={!puedeRegistrar} onClick={registrar}>
-            Registrar factura
+          <Button className="mt-4 w-full" size="lg" disabled={!puedeRegistrar || guardando} onClick={registrar}>
+            {guardando ? "Guardando…" : "Registrar factura"}
           </Button>
         </Card>
       </div>
@@ -762,6 +789,14 @@ function Banner() {
   return (
     <div className="mb-2 flex items-center gap-2 rounded-xl bg-pistachio/30 px-4 py-3 font-bold text-cocoa animate-fade-up">
       <Check size={18} /> Factura registrada correctamente.
+    </div>
+  );
+}
+
+function ErrorBanner({ mensaje }: { mensaje: string }) {
+  return (
+    <div className="mb-2 flex items-center gap-2 rounded-xl bg-red-100 px-4 py-3 font-bold text-red-700 animate-fade-up">
+      <CircleAlert size={18} /> No se pudo guardar: {mensaje}
     </div>
   );
 }
