@@ -152,7 +152,14 @@ export const useData = create<DataState>((set, get) => ({
   },
 
   asignarDomiciliario: async (facturaId, domiciliarioId) => {
-    const up = await dataService.updateFactura(facturaId, { domiciliarioId: domiciliarioId ?? undefined });
+    // domiciliarioId === null significa "retirar": vuelve a "listo" para que
+    // reaparezca en el despachador. Si se asigna, se marca entregada de una
+    // vez (la confirmación de entrega ya no es un paso manual aparte).
+    const patch: Partial<Factura> =
+      domiciliarioId === null
+        ? { domiciliarioId: null as unknown as undefined, estado: "listo", despachado: false }
+        : { domiciliarioId, estado: "completado", despachado: true };
+    const up = await dataService.updateFactura(facturaId, patch);
     set((s) => ({ facturas: s.facturas.map((x) => (x.id === facturaId ? up : x)) }));
   },
   marcarServida: async (facturaId, servida) => {
