@@ -144,6 +144,14 @@ export function Facturar() {
     mixtoValido;
 
   const itemsFavorValidos = itemsFavor.filter((it) => it.nombre.trim() && it.precio > 0);
+  const subtotalFavor = itemsFavorValidos.reduce((s, it) => s + it.precio, 0);
+
+  // Combinación "Efectivo y Transferencia": la transferencia se autocalcula
+  // como el restante del subtotal del producto, igual que en el mixto normal.
+  const transferenciaFavorEsAuto = tipoMixtoFavor === "efectivo-transferencia";
+  const favorValorTransferenciaCalculado = transferenciaFavorEsAuto
+    ? Math.max(0, subtotalFavor - favorValorEfectivoMixto)
+    : favorValorTransferenciaMixto;
 
   // Mixto válido: combinación elegida y todos sus campos de valor presentes
   const favorMixtoValido =
@@ -151,7 +159,11 @@ export function Facturar() {
     (
       !!tipoMixtoFavor &&
       (!comboFavorIncluye(tipoMixtoFavor, "efectivo") || favorValorEfectivoMixto > 0) &&
-      (!comboFavorIncluye(tipoMixtoFavor, "transferencia") || (favorValorTransferenciaMixto > 0 && !!favorMedioTransferenciaMixto)) &&
+      (!comboFavorIncluye(tipoMixtoFavor, "transferencia") || (
+        transferenciaFavorEsAuto
+          ? !!favorMedioTransferenciaMixto
+          : (favorValorTransferenciaMixto > 0 && !!favorMedioTransferenciaMixto)
+      )) &&
       (!comboFavorIncluye(tipoMixtoFavor, "domiciliario") || favorValorAdelantado > 0)
     );
 
@@ -196,7 +208,6 @@ export function Facturar() {
   // ── submit favor ──────────────────────────────────────────────────────
   const registrarFavor = () => {
     if (!puedeRegistrarFavor) return;
-    const subtotalFavor = itemsFavorValidos.reduce((s, it) => s + it.precio, 0);
     const totalFavor = subtotalFavor + (favorValorDom || 0);
     // Descuento al domiciliario:
     // "domiciliario" → descuenta todo (producto + domicilio) al domiciliario.
@@ -230,7 +241,7 @@ export function Facturar() {
       total: totalFavor,
       tipoMixtoFavor: esMixtoFavor ? tipoMixtoFavor : undefined,
       valorEfectivo: incluyeEfectivo ? favorValorEfectivoMixto : undefined,
-      valorTransferencia: incluyeTransferencia ? favorValorTransferenciaMixto : undefined,
+      valorTransferencia: incluyeTransferencia ? favorValorTransferenciaCalculado : undefined,
       medioTransferencia: incluyeTransferencia ? (favorMedioTransferenciaMixto as MedioTransferencia) : undefined,
       valorDomiciliarioAdelantado: incluyeDomiciliario ? favorValorAdelantado : undefined,
       efectivoSobranteFavor: sobranteFavor > 0 ? sobranteFavor : undefined,
@@ -302,7 +313,6 @@ export function Facturar() {
   // FAVOR — formulario completo de pedido especial
   // ══════════════════════════════════════════════════════════════════════
   if (tipo === "favor") {
-    const subtotalFavor = itemsFavorValidos.reduce((s, it) => s + it.precio, 0);
     const totalFavor = subtotalFavor + (favorValorDom || 0);
     const descuento = metodoFavor === "mixto"
       ? favorMixtoCalc.descuento
@@ -435,12 +445,19 @@ export function Facturar() {
                   )}
                   {comboFavorIncluye(tipoMixtoFavor, "transferencia") && (
                     <>
-                      <Input
-                        label="Valor en transferencia (COP)"
-                        type="number"
-                        value={favorValorTransferenciaMixto || ""}
-                        onChange={(e) => setFavorValorTransferenciaMixto(Number(e.target.value) || 0)}
-                      />
+                      {transferenciaFavorEsAuto ? (
+                        <div className="flex items-center justify-between rounded-xl border border-sand bg-white px-4 py-2.5">
+                          <span className="text-sm text-cocoa/70">Valor en transferencia</span>
+                          <span className="font-bold text-cocoa">{formatCOP(favorValorTransferenciaCalculado)}</span>
+                        </div>
+                      ) : (
+                        <Input
+                          label="Valor en transferencia (COP)"
+                          type="number"
+                          value={favorValorTransferenciaMixto || ""}
+                          onChange={(e) => setFavorValorTransferenciaMixto(Number(e.target.value) || 0)}
+                        />
+                      )}
                       <p className="text-sm font-bold text-cocoa/80">¿Por qué medio de transferencia?</p>
                       <div className="grid grid-cols-2 gap-2">
                         {mediosTransferencia.map((m) => (
