@@ -15,7 +15,16 @@ export const getSupabase = (): SupabaseClient => {
     client = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
+      {
+        auth: { persistSession: false },
+        // Next.js cachea cualquier fetch() del lado del servidor por defecto,
+        // incluso en rutas con `dynamic = "force-dynamic"`. Sin esto, las
+        // consultas a Supabase quedan congeladas con la respuesta de la
+        // primera llamada y nunca reflejan altas/bajas/cambios posteriores.
+        global: {
+          fetch: (url, options = {}) => fetch(url, { ...options, cache: "no-store" }),
+        },
+      }
     );
   }
   return client;
