@@ -76,12 +76,6 @@ export function Facturar() {
   // Mixto: transferencia = total - efectivo
   const valorTransferencia = metodo === "mixto" ? Math.max(0, total - valorEfectivo) : 0;
 
-  // Favor con pago Mixto: descuento al domiciliario + sobrante de efectivo según combinación
-  const favorMixtoCalc = useMemo(() => {
-    if (metodoFavor !== "mixto" || !tipoMixtoFavor) return { descuento: 0, sobranteEfectivo: 0 };
-    return calcFavorMixto(tipoMixtoFavor, favorValorDom || 0, favorValorEfectivoMixto, favorValorAdelantado);
-  }, [metodoFavor, tipoMixtoFavor, favorValorDom, favorValorEfectivoMixto, favorValorAdelantado]);
-
   // ── acciones sobre items ─────────────────────────────────────────────
   const addItem = (it: ItemFactura) =>
     setItems((prev) => {
@@ -153,6 +147,21 @@ export function Facturar() {
     ? Math.max(0, subtotalFavor - favorValorEfectivoMixto)
     : favorValorTransferenciaMixto;
 
+  // Combinaciones con Domiciliario: el adelanto siempre es el restante del
+  // subtotal del producto frente al otro medio (transferencia o efectivo).
+  const favorValorAdelantadoCalculado =
+    tipoMixtoFavor === "transferencia-domiciliario"
+      ? Math.max(0, subtotalFavor - favorValorTransferenciaMixto)
+      : tipoMixtoFavor === "efectivo-domiciliario"
+      ? Math.max(0, subtotalFavor - favorValorEfectivoMixto)
+      : favorValorAdelantado;
+
+  // Favor con pago Mixto: descuento al domiciliario + sobrante de efectivo según combinación
+  const favorMixtoCalc = useMemo(() => {
+    if (metodoFavor !== "mixto" || !tipoMixtoFavor) return { descuento: 0, sobranteEfectivo: 0 };
+    return calcFavorMixto(tipoMixtoFavor, favorValorDom || 0, favorValorEfectivoMixto, favorValorAdelantadoCalculado);
+  }, [metodoFavor, tipoMixtoFavor, favorValorDom, favorValorEfectivoMixto, favorValorAdelantadoCalculado]);
+
   // Mixto válido: combinación elegida y todos sus campos de valor presentes
   const favorMixtoValido =
     metodoFavor !== "mixto" ||
@@ -163,8 +172,7 @@ export function Facturar() {
         transferenciaFavorEsAuto
           ? !!favorMedioTransferenciaMixto
           : (favorValorTransferenciaMixto > 0 && !!favorMedioTransferenciaMixto)
-      )) &&
-      (!comboFavorIncluye(tipoMixtoFavor, "domiciliario") || favorValorAdelantado > 0)
+      ))
     );
 
   const puedeRegistrarFavor =
@@ -243,7 +251,7 @@ export function Facturar() {
       valorEfectivo: incluyeEfectivo ? favorValorEfectivoMixto : undefined,
       valorTransferencia: incluyeTransferencia ? favorValorTransferenciaCalculado : undefined,
       medioTransferencia: incluyeTransferencia ? (favorMedioTransferenciaMixto as MedioTransferencia) : undefined,
-      valorDomiciliarioAdelantado: incluyeDomiciliario ? favorValorAdelantado : undefined,
+      valorDomiciliarioAdelantado: incluyeDomiciliario ? favorValorAdelantadoCalculado : undefined,
       efectivoSobranteFavor: sobranteFavor > 0 ? sobranteFavor : undefined,
     });
     setOk(true);
@@ -478,12 +486,10 @@ export function Facturar() {
                     </>
                   )}
                   {comboFavorIncluye(tipoMixtoFavor, "domiciliario") && (
-                    <Input
-                      label="Valor pagado por el domiciliario (COP)"
-                      type="number"
-                      value={favorValorAdelantado || ""}
-                      onChange={(e) => setFavorValorAdelantado(Number(e.target.value) || 0)}
-                    />
+                    <div className="flex items-center justify-between rounded-xl border border-sand bg-white px-4 py-2.5">
+                      <span className="text-sm text-cocoa/70">Valor pagado por el domiciliario</span>
+                      <span className="font-bold text-cocoa">{formatCOP(favorValorAdelantadoCalculado)}</span>
+                    </div>
                   )}
                 </div>
               )}
