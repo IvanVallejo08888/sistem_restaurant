@@ -2,7 +2,7 @@
 import { cx } from "@/lib/utils";
 import { ButtonHTMLAttributes } from "react";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
@@ -10,6 +10,7 @@ const variants: Record<Variant, string> = {
   secondary: "bg-sand text-cocoa hover:bg-raspberry-light",
   ghost: "bg-transparent text-cocoa hover:bg-sand",
   danger: "bg-white text-raspberry-dark border border-raspberry-light hover:bg-raspberry-light",
+  outline: "bg-white text-raspberry border-2 border-raspberry hover:bg-raspberry-light",
 };
 const sizes: Record<Size, string> = {
   sm: "px-3 py-1.5 text-sm",

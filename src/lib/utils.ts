@@ -30,6 +30,14 @@ export const formatHora12 = (iso: string) =>
     hour12: true,
   });
 
+// Fecha en formato DD/MM/YYYY (es-CO)
+export const formatFecha = (iso: string) =>
+  new Date(iso).toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
 // Suma minutos a una fecha ISO y devuelve hora 12h
 export const horaMas = (iso: string, minutos: number) =>
   formatHora12(new Date(new Date(iso).getTime() + minutos * 60000).toISOString());
