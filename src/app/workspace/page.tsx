@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ChefHat, ReceiptText, Bike, LogOut } from "lucide-react";
+import { ChefHat, ReceiptText, Bike, ListChecks, LogOut } from "lucide-react";
 import { useHydrate } from "@/store/useHydrate";
 import { useSession } from "@/store/sessionStore";
 import { useData } from "@/store/dataStore";
@@ -13,6 +13,13 @@ const roles: { rol: Rol; label: string; desc: string; icon: typeof ChefHat; ruta
   { rol: "cocina", label: "Cocina", desc: "Pedidos en preparación", icon: ChefHat, ruta: "/cocina", color: "from-raspberry/10 to-raspberry-light/40" },
   { rol: "despachador", label: "Despachador", desc: "Entrega de pedidos", icon: Bike, ruta: "/despachador", color: "from-mint/10 to-mint/30" },
 ];
+
+// Card aparte (no en `roles`) porque en desktop va centrada en su propia fila,
+// no dentro del grid de 3 columnas de arriba.
+const recomendaciones = {
+  label: "Recomendaciones", desc: "Sugerencias para el jefe", icon: ListChecks, ruta: "/recomendaciones",
+  color: "from-violet-400/10 to-violet-300/30",
+};
 
 export default function WorkspacePage() {
   const ready = useHydrate();
@@ -61,7 +68,7 @@ export default function WorkspacePage() {
         </p>
       </header>
 
-      <section className="mx-auto grid max-w-5xl gap-5 px-6 pb-16 sm:grid-cols-3">
+      <section className="mx-auto grid max-w-5xl gap-5 px-6 sm:grid-cols-3">
         {roles.map((r, i) => {
           const Icon = r.icon;
           return (
@@ -80,6 +87,25 @@ export default function WorkspacePage() {
             </button>
           );
         })}
+      </section>
+
+      {/* Recomendaciones: en desktop (sm+) centrada bajo las 3 tarjetas, con el
+          mismo ancho de una columna; en mobile es simplemente el 4to elemento
+          apilado, sin tratamiento especial (las celdas vacías solo existen en sm+). */}
+      <section className="mx-auto mt-5 grid max-w-5xl gap-5 px-6 pb-16 sm:grid-cols-3">
+        <div className="hidden sm:block" aria-hidden />
+        <button
+          disabled={!ready}
+          onClick={() => router.push(recomendaciones.ruta)}
+          className={`group animate-fade-up rounded-xl2 border border-sand bg-gradient-to-br ${recomendaciones.color} p-6 text-left shadow-card transition-all hover:-translate-y-1 hover:shadow-soft focus:outline-none disabled:opacity-60`}
+        >
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-raspberry shadow-card transition-transform group-hover:scale-110">
+            <ListChecks size={28} strokeWidth={1.8} />
+          </div>
+          <h2 className="font-display text-2xl font-semibold text-cocoa">{recomendaciones.label}</h2>
+          <p className="mt-1 text-sm text-cocoa/60">{recomendaciones.desc}</p>
+        </button>
+        <div className="hidden sm:block" aria-hidden />
       </section>
 
       <div className="flex justify-center pb-12">

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Store, Croissant, Bike, Armchair, TrendingUp } from "lucide-react";
+import { Store, Croissant, Bike, Armchair, TrendingUp, ListChecks } from "lucide-react";
 import { AreaShell } from "@/components/layout/AreaShell";
 import { SideNav } from "@/components/layout/SideNav";
 import { LocalesPanel } from "@/components/admin/LocalesPanel";
@@ -9,9 +9,10 @@ import { DomiciliariosPanel } from "@/components/admin/DomiciliariosPanel";
 import { MesasPanel } from "@/components/admin/MesasPanel";
 import { LocalSelector } from "@/components/admin/LocalSelector";
 import { ReportesPanel } from "@/components/admin/ReportesPanel";
+import { RecomendacionesPanel } from "@/components/admin/RecomendacionesPanel";
 import { Empty } from "@/components/ui/Empty";
 
-type Tab = "locales" | "reportes" | "carta" | "domiciliarios" | "mesas";
+type Tab = "locales" | "reportes" | "carta" | "domiciliarios" | "mesas" | "recomendaciones";
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("locales");
@@ -23,6 +24,7 @@ export default function AdminPage() {
     { key: "carta", label: "Carta", icon: <Croissant size={18} /> },
     { key: "domiciliarios", label: "Domiciliarios", icon: <Bike size={18} /> },
     { key: "mesas", label: "Mesas", icon: <Armchair size={18} /> },
+    { key: "recomendaciones", label: "Recomendaciones", icon: <ListChecks size={18} /> },
   ];
 
   const requiereLocal = tab === "carta" || tab === "domiciliarios" || tab === "mesas";
@@ -35,6 +37,7 @@ export default function AdminPage() {
     >
       {tab === "locales" && <LocalesPanel />}
       {tab === "reportes" && <ReportesPanel />}
+      {tab === "recomendaciones" && <RecomendacionesPanel />}
 
       {requiereLocal && (
         <>

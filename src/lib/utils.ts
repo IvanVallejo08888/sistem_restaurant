@@ -38,6 +38,19 @@ export const formatFecha = (iso: string) =>
     year: "numeric",
   });
 
+// Fecha y hora forzadas a America/Bogota, independiente de la zona horaria del
+// dispositivo (usado en Recomendaciones, donde el admin puede revisar desde
+// cualquier lugar y la hora debe ser siempre la del local en Colombia).
+export const formatFechaCO = (iso: string) =>
+  new Date(iso).toLocaleDateString("es-CO", {
+    day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Bogota",
+  });
+
+export const formatHoraCO = (iso: string) =>
+  new Date(iso).toLocaleTimeString("es-CO", {
+    hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/Bogota",
+  });
+
 // Suma minutos a una fecha ISO y devuelve hora 12h
 export const horaMas = (iso: string, minutos: number) =>
   formatHora12(new Date(new Date(iso).getTime() + minutos * 60000).toISOString());

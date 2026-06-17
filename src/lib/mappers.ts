@@ -2,7 +2,7 @@
 // Postgres devuelve los "numeric" como string, por eso se convierten con Number().
 
 import {
-  Local, Producto, Domiciliario, Mesa, Factura, Gasto,
+  Local, Producto, Domiciliario, Mesa, Factura, Gasto, Recomendacion,
 } from "@/types";
 
 // ---------- Locales ----------
@@ -232,6 +232,24 @@ export const gastoToRow = (g: Gasto) => ({
   medio_pago: g.medioPago,
   valor: g.valor,
   creado_en: g.creadoEn,
+});
+
+// ---------- Recomendaciones ----------
+
+export const rowToRecomendacion = (r: any): Recomendacion => ({
+  id: r.id,
+  localId: r.local_id,
+  localNombre: r.local_nombre,
+  mensaje: r.mensaje,
+  creadoEn: r.creado_en,
+});
+
+export const recomendacionToRow = (r: Recomendacion) => ({
+  id: r.id,
+  local_id: r.localId,
+  local_nombre: r.localNombre,
+  mensaje: r.mensaje,
+  creado_en: r.creadoEn,
 });
 
 export const facturaPatchToRow = (f: Partial<Factura>) => {

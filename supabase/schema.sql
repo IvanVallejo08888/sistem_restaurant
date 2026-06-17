@@ -169,3 +169,22 @@ alter table gastos enable row level security;
 
 -- Si la tabla "gastos" ya existía antes de añadir el medio de pago, agrega la columna:
 alter table gastos add column if not exists medio_pago text not null default 'efectivo';
+
+-- local_nombre queda denormalizado (igual que mesa_nombre en facturas) para que el
+-- listado del admin no dependa de un join ni de que el local siga existiendo.
+create table if not exists recomendaciones (
+  id          text primary key,
+  local_id    text not null references locales(id) on delete cascade,
+  local_nombre text not null,
+  mensaje     text not null,
+  creado_en   timestamptz not null default now()
+);
+
+create index if not exists recomendaciones_local_id_idx on recomendaciones(local_id);
+create index if not exists recomendaciones_creado_en_idx on recomendaciones(creado_en);
+alter table recomendaciones enable row level security;
+-- Sin policies: igual que el resto de tablas, el backend accede con la
+-- SUPABASE_SERVICE_ROLE_KEY (que ignora RLS) vía las API routes; la app no usa
+-- Supabase Auth ni roles a nivel de base de datos, la autorización (personal vs
+-- admin) se controla en el cliente con sessionStore + AreaShell, igual que en
+-- el resto de la app (ver locales/mesas/etc. arriba).

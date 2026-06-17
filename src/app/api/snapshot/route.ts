@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import {
-  rowToLocal, rowToProducto, rowToDomiciliario, rowToMesa, rowToFactura, rowToGasto,
+  rowToLocal, rowToProducto, rowToDomiciliario, rowToMesa, rowToFactura, rowToGasto, rowToRecomendacion,
 } from "@/lib/mappers";
 import { Snapshot } from "@/services/types";
 
@@ -12,16 +12,17 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const supabase = getSupabase();
-  const [locales, productos, domiciliarios, mesas, facturas, gastos] = await Promise.all([
+  const [locales, productos, domiciliarios, mesas, facturas, gastos, recomendaciones] = await Promise.all([
     supabase.from("locales").select("*").is("deleted_at", null),
     supabase.from("productos").select("*"),
     supabase.from("domiciliarios").select("*"),
     supabase.from("mesas").select("*"),
     supabase.from("facturas").select("*"),
     supabase.from("gastos").select("*"),
+    supabase.from("recomendaciones").select("*"),
   ]);
 
-  const error = locales.error ?? productos.error ?? domiciliarios.error ?? mesas.error ?? facturas.error ?? gastos.error;
+  const error = locales.error ?? productos.error ?? domiciliarios.error ?? mesas.error ?? facturas.error ?? gastos.error ?? recomendaciones.error;
   if (error) {
     console.error("[snapshot] Supabase error:", JSON.stringify(error));
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -34,6 +35,7 @@ export async function GET() {
     mesas: mesas.data!.map(rowToMesa),
     facturas: facturas.data!.map(rowToFactura),
     gastos: gastos.data!.map(rowToGasto),
+    recomendaciones: recomendaciones.data!.map(rowToRecomendacion),
   };
 
   return NextResponse.json(snapshot);

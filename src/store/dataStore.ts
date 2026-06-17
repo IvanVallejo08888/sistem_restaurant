@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import {
-  Local, Producto, Domiciliario, Mesa, Factura, Gasto,
+  Local, Producto, Domiciliario, Mesa, Factura, Gasto, Recomendacion,
 } from "@/types";
 import { dataService } from "@/services";
 
@@ -15,6 +15,7 @@ type DataState = {
   mesas: Mesa[];
   facturas: Factura[];
   gastos: Gasto[];
+  recomendaciones: Recomendacion[];
   hydrated: boolean;
 
   hydrate: () => Promise<void>;
@@ -45,6 +46,9 @@ type DataState = {
 
   addGasto: (d: Omit<Gasto, "id" | "creadoEn">) => Promise<void>;
   removeGasto: (id: string) => Promise<void>;
+
+  addRecomendacion: (d: Omit<Recomendacion, "id" | "creadoEn">) => Promise<void>;
+  removeRecomendacion: (id: string) => Promise<void>;
 };
 
 export const useData = create<DataState>((set, get) => ({
@@ -54,6 +58,7 @@ export const useData = create<DataState>((set, get) => ({
   mesas: [],
   facturas: [],
   gastos: [],
+  recomendaciones: [],
   hydrated: false,
 
   hydrate: async () => {
@@ -162,5 +167,14 @@ export const useData = create<DataState>((set, get) => ({
   removeGasto: async (id) => {
     await dataService.deleteGasto(id);
     set((s) => ({ gastos: s.gastos.filter((x) => x.id !== id) }));
+  },
+
+  addRecomendacion: async (d) => {
+    const it = await dataService.createRecomendacion(d);
+    set((s) => ({ recomendaciones: [...s.recomendaciones, it] }));
+  },
+  removeRecomendacion: async (id) => {
+    await dataService.deleteRecomendacion(id);
+    set((s) => ({ recomendaciones: s.recomendaciones.filter((x) => x.id !== id) }));
   },
 }));

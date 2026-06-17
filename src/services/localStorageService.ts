@@ -5,12 +5,12 @@
 import { DataService, Snapshot } from "./types";
 import { storage } from "@/lib/storage";
 import { uid, now } from "@/lib/utils";
-import { Local, Producto, Domiciliario, Mesa, Factura, Gasto } from "@/types";
+import { Local, Producto, Domiciliario, Mesa, Factura, Gasto, Recomendacion } from "@/types";
 
 const KEY = "data";
 
 const empty: Snapshot = {
-  locales: [], productos: [], domiciliarios: [], mesas: [], facturas: [], gastos: [],
+  locales: [], productos: [], domiciliarios: [], mesas: [], facturas: [], gastos: [], recomendaciones: [],
 };
 
 const read = (): Snapshot => ({ ...empty, ...storage.load<Snapshot>(KEY, empty) });
@@ -139,6 +139,18 @@ export class LocalStorageService implements DataService {
   async deleteGasto(id: string) {
     const s = read();
     write({ ...s, gastos: s.gastos.filter((x) => x.id !== id) });
+    return tick(undefined);
+  }
+
+  async createRecomendacion(d: Omit<Recomendacion, "id" | "creadoEn">) {
+    const s = read();
+    const item: Recomendacion = { ...d, id: uid(), creadoEn: now() };
+    write({ ...s, recomendaciones: [...s.recomendaciones, item] });
+    return tick(item);
+  }
+  async deleteRecomendacion(id: string) {
+    const s = read();
+    write({ ...s, recomendaciones: s.recomendaciones.filter((x) => x.id !== id) });
     return tick(undefined);
   }
 }

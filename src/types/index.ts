@@ -145,3 +145,12 @@ export type Factura = {
 };
 
 export type Rol = "cocina" | "facturacion" | "despachador" | "admin" | "cajero";
+
+// Sugerencia del personal de un local para el administrador.
+export type Recomendacion = {
+  id: ID;
+  localId: ID;
+  localNombre: string; // denormalizado, igual que mesaNombre en Factura
+  mensaje: string;
+  creadoEn: string;
+};

@@ -4,7 +4,7 @@
 // La firma es idéntica a LocalStorageService, por lo que la UI no cambia.
 
 import { DataService, Snapshot } from "./types";
-import { Local, Producto, Domiciliario, Mesa, Factura, Gasto } from "@/types";
+import { Local, Producto, Domiciliario, Mesa, Factura, Gasto, Recomendacion } from "@/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -46,4 +46,7 @@ export class HttpService implements DataService {
 
   createGasto(d: Omit<Gasto, "id" | "creadoEn">) { return api<Gasto>("/gastos", { method: "POST", body: JSON.stringify(d) }); }
   deleteGasto(id: string) { return api<void>(`/gastos/${id}`, { method: "DELETE" }); }
+
+  createRecomendacion(d: Omit<Recomendacion, "id" | "creadoEn">) { return api<Recomendacion>("/recomendaciones", { method: "POST", body: JSON.stringify(d) }); }
+  deleteRecomendacion(id: string) { return api<void>(`/recomendaciones/${id}`, { method: "DELETE" }); }
 }
