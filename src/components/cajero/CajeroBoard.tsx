@@ -173,7 +173,7 @@ export function CajeroBoard() {
   const gastosEfectivo = totalGastosEfectivo(gastosHoy);
   const efectivoNeto = efectivo - gastosEfectivo;
 
-  const { utilidad, porMetodo: utilidadPorMetodo, totalFavores } = useMemo(
+  const { utilidad, porMetodo: utilidadPorMetodo } = useMemo(
     () => utilidadDelDia(delDia, gastosHoy),
     [delDia, gastosHoy]
   );
@@ -254,13 +254,11 @@ export function CajeroBoard() {
               "border-raspberry/30 bg-raspberry-light/40 text-cocoa",
             )}
           >
-            <p className="mb-2 text-xs font-semibold opacity-60">Ingresos − gastos empresariales − favores</p>
+            <p className="mb-2 text-xs font-semibold opacity-60">Ingresos − gastos empresariales</p>
             <DesgloseMétodos resumen={utilidadPorMetodo} signo="auto" />
-            {totalFavores > 0 && (
-              <div className="mt-2 border-t border-current/10 pt-2">
-                <Fila label="Favores del día" value={-totalFavores} signo="auto" />
-              </div>
-            )}
+            <p className="mt-2 border-t border-current/10 pt-2 text-xs opacity-60">
+              El costo de los favores ya se incluye aquí como gasto empresarial (ver &ldquo;Gastos empresariales del día&rdquo;).
+            </p>
           </ExpandCard>
 
           {/* Domicilios del día — esmeralda */}

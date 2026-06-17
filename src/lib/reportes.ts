@@ -93,14 +93,16 @@ export const totalGastosEfectivo = (gastos: Gasto[]) =>
 
 // ── Utilidad del día ──────────────────────────────────────────────────────────
 
-// Ingresos (excluyendo favores) - gastos empresariales - total de favores del día.
+// Ingresos (excluyendo favores) - gastos empresariales.
 // Desglose por método: ingresos[método] - gastos[método].
-// Los favores se descuentan globalmente de efectivo como simplificación.
+// Los favores ya generan su propio gasto empresarial real al registrarse (ver
+// registrarFavor en Facturar.tsx, descripción "FAVOR: ..."), así que su costo
+// llega aquí a través de `gastos` igual que cualquier otro gasto manual.
+// Importante: no volver a aproximar/sumar el costo de los favores aparte en
+// esta función, o se contaría dos veces (una vez como gasto real, otra como
+// aproximación) y la utilidad quedaría incorrecta.
 export const utilidadDelDia = (facturas: Factura[], gastos: Gasto[]) => {
   const normales = facturas.filter((f) => f.tipo !== "favor");
-  const totalFavores = facturas
-    .filter((f) => f.tipo === "favor")
-    .reduce((s, f) => s + (f.valorEfectivo ?? (f.metodoPago !== "domiciliario" ? f.total : 0)), 0);
 
   const ingresos = cajaPorMetodosCompleto(normales);
   const gastosM = resumenMetodosVacio();
@@ -108,8 +110,6 @@ export const utilidadDelDia = (facturas: Factura[], gastos: Gasto[]) => {
     const k = g.medioPago as keyof ResumenMetodos;
     if (k in gastosM) gastosM[k] += g.valor;
   });
-  // Favores como gasto en efectivo (aproximación: todos restan del efectivo neto)
-  gastosM.efectivo += totalFavores;
 
   const porMetodo: ResumenMetodos = {
     efectivo: ingresos.efectivo - gastosM.efectivo,
@@ -120,7 +120,7 @@ export const utilidadDelDia = (facturas: Factura[], gastos: Gasto[]) => {
   };
 
   const utilidad = totalResumen(ingresos) - totalResumen(gastosM);
-  return { utilidad, porMetodo, totalFavores };
+  return { utilidad, porMetodo };
 };
 
 // ── Estadísticas de domicilios ────────────────────────────────────────────────

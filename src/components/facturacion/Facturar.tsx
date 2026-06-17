@@ -24,6 +24,7 @@ export function Facturar() {
   const localId = useSession((s) => s.localId)!;
   const mesas = useData((s) => s.mesas.filter((m) => m.localId === localId));
   const addFactura = useData((s) => s.addFactura);
+  const addGasto = useData((s) => s.addGasto);
 
   const hoy = now().slice(0, 10);
 
@@ -318,6 +319,24 @@ export function Facturar() {
         valorDomiciliarioAdelantado: incluyeDomiciliario ? favorValorAdelantadoCalculado : undefined,
         efectivoSobranteFavor: sobranteFavor > 0 ? sobranteFavor : undefined,
       });
+
+      // Gasto empresarial automático asociado al favor (reutiliza addGasto, el
+      // mismo que usa el formulario manual de "Registrar gasto" en Cajero/Reportes,
+      // así que aparece igual en esas listas y en utilidadDelDia/utilidadDia sin
+      // lógica adicional). No se relanza el error: la factura ya quedó guardada
+      // y reintentar el registro completo crearía un favor duplicado.
+      try {
+        await addGasto({
+          localId,
+          descripcion: `FAVOR: ${nombreFavor.trim()}${favorValorDom > 0 ? " + DOM" : ""}`,
+          medioPago: "efectivo",
+          valor: totalFavor,
+        });
+      } catch (gastoError) {
+        console.error("Favor registrado, pero falló el gasto empresarial asociado:", gastoError);
+        setError("El favor se registró, pero no se pudo crear el gasto empresarial asociado. Regístralo manualmente en Gastos empresariales.");
+      }
+
       setFacturaCreada(nueva);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo registrar el favor.");
