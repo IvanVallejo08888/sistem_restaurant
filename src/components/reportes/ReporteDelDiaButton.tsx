@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { FileBarChart, Bike } from "lucide-react";
+import { FileBarChart, Bike, Download, CircleAlert } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { formatCOP } from "@/lib/utils";
 import {
@@ -29,6 +29,32 @@ export function ReporteDelDiaButton({ localId }: { localId: string }) {
   const gastosTotal = totalGastos(gastosHoy);
   const conActividad = domiciliarios.filter((d) => delDia.some((f) => f.domiciliarioId === d.id));
 
+  const [descargando, setDescargando] = useState(false);
+  const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
+
+  const descargarExcel = async () => {
+    setDescargando(true);
+    setErrorDescarga(null);
+    try {
+      const res = await fetch(`/api/reportes/dia?localId=${encodeURIComponent(localId)}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `Error ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reporte-dia-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setErrorDescarga(e instanceof Error ? e.message : "No se pudo generar el Excel.");
+    } finally {
+      setDescargando(false);
+    }
+  };
+
   return (
     <>
       <button
@@ -40,6 +66,20 @@ export function ReporteDelDiaButton({ localId }: { localId: string }) {
 
       <Modal open={open} onClose={() => setOpen(false)} title="Reporte del día">
         <div className="space-y-5">
+          {errorDescarga && (
+            <div className="flex items-center gap-2 rounded-xl bg-red-100 px-4 py-3 text-sm font-bold text-red-700">
+              <CircleAlert size={16} /> {errorDescarga}
+            </div>
+          )}
+          <div className="flex justify-end">
+            <button
+              onClick={descargarExcel}
+              disabled={descargando}
+              className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-white shadow-card transition hover:bg-amber-600 disabled:opacity-60"
+            >
+              <Download size={14} /> {descargando ? "Generando…" : "Descargar Excel"}
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl2 border border-pistachio/40 bg-pistachio/20 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-cocoa/50">Heladería</p>

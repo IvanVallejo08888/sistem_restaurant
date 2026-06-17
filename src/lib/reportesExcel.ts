@@ -5,8 +5,10 @@
 // agregaciones que faltaban (rankings con valor en pesos, no solo conteo).
 import ExcelJS from "exceljs";
 import { Factura, Gasto, Local, Producto, Domiciliario } from "@/types";
-import { cajaPorMetodosCompleto, cajaPorCategoria, totalResumen, totalGastos } from "./reportes";
-import { folio, esDomicilioLike } from "./factura";
+import {
+  cajaPorMetodosCompleto, cajaPorCategoria, totalResumen, totalGastos, cuadreDomiciliario,
+} from "./reportes";
+import { folio, esDomicilioLike, labelMetodo } from "./factura";
 
 // ── Paleta (mismos tokens de tailwind.config.ts) ──────────────────────────────
 const COLOR_RASPBERRY = "FFD63B6A";
@@ -128,6 +130,16 @@ function aplicarFilasAlternadas(ws: ExcelJS.Worksheet, desdeFila: number) {
       cell.font = { ...cell.font, name: cell.font?.name ?? "Calibri" };
     });
   }
+}
+
+// Filtro automático de Excel en la fila de encabezados, solo para hojas tipo
+// tabla (no para "Resumen"/"Reporte", que no tienen filas repetidas).
+function aplicarAutoFiltro(ws: ExcelJS.Worksheet) {
+  if (ws.rowCount < 2) return;
+  ws.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: ws.rowCount, column: ws.columnCount },
+  };
 }
 
 function ajustarAnchos(ws: ExcelJS.Worksheet) {
@@ -254,6 +266,7 @@ export async function generarReporteMensualWorkbook(datos: DatosReporteMensual):
       });
     });
   aplicarFilasAlternadas(wsVentas, 2);
+  aplicarAutoFiltro(wsVentas);
   ajustarAnchos(wsVentas);
 
   // ── Top 10 barrios ────────────────────────────────────────────────────────
@@ -264,6 +277,7 @@ export async function generarReporteMensualWorkbook(datos: DatosReporteMensual):
   ]);
   topBarrios(activas, 10).forEach((b) => wsBarrios.addRow(b));
   aplicarFilasAlternadas(wsBarrios, 2);
+  aplicarAutoFiltro(wsBarrios);
   ajustarAnchos(wsBarrios);
 
   // ── Productos más / menos vendidos ──────────────────────────────────────
@@ -277,11 +291,13 @@ export async function generarReporteMensualWorkbook(datos: DatosReporteMensual):
   const wsMas = crearHoja(wb, "Más vendidos", colsProductos);
   masVendidos.forEach((p) => wsMas.addRow(p));
   aplicarFilasAlternadas(wsMas, 2);
+  aplicarAutoFiltro(wsMas);
   ajustarAnchos(wsMas);
 
   const wsMenos = crearHoja(wb, "Menos vendidos", colsProductos);
   menosVendidos.forEach((p) => wsMenos.addRow(p));
   aplicarFilasAlternadas(wsMenos, 2);
+  aplicarAutoFiltro(wsMenos);
   ajustarAnchos(wsMenos);
 
   // ── Domiciliarios ────────────────────────────────────────────────────────
@@ -293,6 +309,7 @@ export async function generarReporteMensualWorkbook(datos: DatosReporteMensual):
   ]);
   reporteDomiciliarios(activas, domiciliarios).forEach((d) => wsDom.addRow(d));
   aplicarFilasAlternadas(wsDom, 2);
+  aplicarAutoFiltro(wsDom);
   ajustarAnchos(wsDom);
 
   // ── Clientes frecuentes ──────────────────────────────────────────────────
@@ -304,7 +321,141 @@ export async function generarReporteMensualWorkbook(datos: DatosReporteMensual):
   ]);
   clientesFrecuentes(activas, 50).forEach((c) => wsClientes.addRow(c));
   aplicarFilasAlternadas(wsClientes, 2);
+  aplicarAutoFiltro(wsClientes);
   ajustarAnchos(wsClientes);
+
+  return wb;
+}
+
+// ── Reporte del día (Excel) ───────────────────────────────────────────────────
+// Mismas 4 tarjetas/secciones que ya muestra el modal "Reporte del día"
+// (ReporteDelDiaButton.tsx): Heladería, Comidas rápidas, Gastos, Utilidad y
+// Domiciliarios. Reutiliza exactamente las mismas funciones de reportes.ts
+// (cajaPorCategoria, totalGastos, cuadreDomiciliario) para que el Excel nunca
+// pueda mostrar un número distinto al que ya se ve en pantalla.
+
+export type DatosReporteDia = {
+  nombreLocal: string;
+  fechaLabel: string; // fecha ya formateada para mostrar (es-CO)
+  facturasDelDiaTodas: Factura[]; // del local y la fecha, INCLUYE canceladas (hoja Facturas)
+  facturasDelDiaActivas: Factura[]; // sin canceladas (mismas que usa el modal para los KPIs)
+  gastosDelDia: Gasto[];
+  productos: Producto[];
+  domiciliarios: Domiciliario[];
+};
+
+export async function generarReporteDiaWorkbook(datos: DatosReporteDia): Promise<ExcelJS.Workbook> {
+  const {
+    nombreLocal, fechaLabel, facturasDelDiaTodas, facturasDelDiaActivas,
+    gastosDelDia: gastosHoy, productos, domiciliarios,
+  } = datos;
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = ENCABEZADO_NOMBRE;
+  wb.created = new Date();
+
+  const ingresosTotales = totalResumen(cajaPorMetodosCompleto(facturasDelDiaActivas));
+  const { heladeria, comidas } = cajaPorCategoria(facturasDelDiaActivas, productos);
+  const gastosTotal = totalGastos(gastosHoy);
+  const utilidadNeta = ingresosTotales - gastosTotal;
+
+  // ── Reporte (resumen del día) ────────────────────────────────────────────
+  const wsReporte = wb.addWorksheet("Reporte");
+  wsReporte.getCell("A1").value = ENCABEZADO_NOMBRE;
+  wsReporte.getCell("A1").font = { name: "Georgia", bold: true, size: 18, color: { argb: COLOR_RASPBERRY } };
+  wsReporte.getCell("A2").value = `Reporte del día · ${fechaLabel}`;
+  wsReporte.getCell("A2").font = { name: "Georgia", bold: true, size: 13, color: { argb: COLOR_COCOA } };
+  wsReporte.getCell("A3").value = `Local: ${nombreLocal}`;
+  wsReporte.getCell("A3").font = { name: "Calibri", italic: true, color: { argb: COLOR_COCOA } };
+  wsReporte.addRow([]);
+
+  const filaTitulo = wsReporte.addRow(["Concepto", "Valor"]);
+  estiloEncabezado(wsReporte, filaTitulo);
+  const inicioDatos = wsReporte.rowCount + 1;
+  [
+    ["Ingresos Heladería", heladeria.total],
+    ["Ingresos Comidas Rápidas", comidas.total],
+    ["Ingresos totales", ingresosTotales],
+    ["Gastos del día", gastosTotal],
+    ["Utilidad neta del día", utilidadNeta],
+  ].forEach((row) => wsReporte.addRow(row));
+  for (let i = inicioDatos; i <= wsReporte.rowCount; i++) {
+    wsReporte.getCell(`B${i}`).numFmt = FORMATO_COP;
+  }
+  ajustarAnchos(wsReporte);
+
+  // ── Facturas (incluye canceladas) ───────────────────────────────────────
+  const wsFacturas = crearHoja(wb, "Facturas", [
+    { header: "# Factura", key: "folio" },
+    { header: "Hora", key: "hora" },
+    { header: "Tipo", key: "tipo" },
+    { header: "Cliente", key: "cliente" },
+    { header: "Valor", key: "valor", money: true },
+    { header: "Estado", key: "estado" },
+    { header: "Domiciliario", key: "domiciliario" },
+  ]);
+  facturasDelDiaTodas
+    .sort((a, b) => +new Date(a.creadoEn) - +new Date(b.creadoEn))
+    .forEach((f) => {
+      wsFacturas.addRow({
+        folio: folio(f),
+        hora: new Date(f.creadoEn).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }),
+        tipo: TIPO_LABEL[f.tipo] ?? f.tipo,
+        cliente: nombreFactura(f),
+        valor: f.total,
+        estado: f.deletedAt ? "Cancelada" : "Completada",
+        domiciliario: f.domiciliarioId ? (domiciliarios.find((d) => d.id === f.domiciliarioId)?.nombreCompleto ?? "") : "",
+      });
+    });
+  aplicarFilasAlternadas(wsFacturas, 2);
+  aplicarAutoFiltro(wsFacturas);
+  ajustarAnchos(wsFacturas);
+
+  // ── Gastos ────────────────────────────────────────────────────────────────
+  const wsGastos = crearHoja(wb, "Gastos", [
+    { header: "Descripción", key: "descripcion" },
+    { header: "Valor", key: "valor", money: true },
+    { header: "Pagado con", key: "medioPago" },
+    { header: "Hora", key: "hora" },
+  ]);
+  gastosHoy
+    .sort((a, b) => +new Date(a.creadoEn) - +new Date(b.creadoEn))
+    .forEach((g) => {
+      wsGastos.addRow({
+        descripcion: g.descripcion,
+        valor: g.valor,
+        medioPago: labelMetodo(g.medioPago),
+        hora: new Date(g.creadoEn).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }),
+      });
+    });
+  aplicarFilasAlternadas(wsGastos, 2);
+  aplicarAutoFiltro(wsGastos);
+  ajustarAnchos(wsGastos);
+
+  // ── Domiciliarios del día ────────────────────────────────────────────────
+  const wsDomDia = crearHoja(wb, "Domiciliarios", [
+    { header: "Domiciliario", key: "nombre" },
+    { header: "# Facturas", key: "facturas" },
+    { header: "Total generado", key: "totalGenerado", money: true },
+    { header: "Ganancia en domicilios", key: "gananciaDomicilios", money: true },
+    { header: "Efectivo a entregar", key: "efectivoAEntregar", money: true },
+  ]);
+  domiciliarios
+    .filter((d) => facturasDelDiaActivas.some((f) => f.domiciliarioId === d.id))
+    .forEach((d) => {
+      const suyas = facturasDelDiaActivas.filter((f) => f.domiciliarioId === d.id);
+      const cuadre = cuadreDomiciliario(suyas);
+      wsDomDia.addRow({
+        nombre: d.nombreCompleto,
+        facturas: cuadre.totalDomicilios,
+        totalGenerado: suyas.reduce((s, f) => s + f.subtotal, 0),
+        gananciaDomicilios: suyas.reduce((s, f) => s + (f.valorDomicilio ?? 0), 0),
+        efectivoAEntregar: cuadre.efectivoAEntregar,
+      });
+    });
+  aplicarFilasAlternadas(wsDomDia, 2);
+  aplicarAutoFiltro(wsDomDia);
+  ajustarAnchos(wsDomDia);
 
   return wb;
 }
