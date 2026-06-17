@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import {
-  Bike, Wallet, ArrowRight, Banknote, Smartphone, Receipt, Plus, Trash2,
+  Bike, Wallet, ArrowRight, ArrowLeftRight, Banknote, Smartphone, Receipt, Plus, Trash2,
   ChevronDown, TrendingUp, MapPin, IceCream, Utensils, Package, LayoutGrid,
 } from "lucide-react";
 import { useData } from "@/store/dataStore";
@@ -109,6 +109,43 @@ function DesgloseMétodos({ resumen, signo }: {
           <Fila key={k} label={LABELS_METODO_ES[k]} value={resumen[k]} signo={signo} />
         )
       ))}
+    </div>
+  );
+}
+
+// Card del saldo final de un domiciliario: positivo = debe entregar efectivo,
+// negativo = la empresa le debe a él (los descuentos superaron lo cobrado), cero = sin transferencia.
+function SaldoDomiciliarioCard({ saldo, size = "sm" }: { saldo: number; size?: "sm" | "lg" }) {
+  const padding = size === "lg" ? "px-5 py-4" : "px-4 py-3";
+  const valueCls = size === "lg" ? "text-2xl" : "text-lg";
+
+  if (saldo > 0) {
+    return (
+      <div className={cx("flex items-center justify-between rounded-xl bg-cocoa text-white", padding)}>
+        <span className="flex items-center gap-2 text-sm font-bold text-white/80">
+          {size === "lg" && <Wallet size={18} />} Efectivo a entregar
+        </span>
+        <span className={cx("font-display font-black", valueCls)}>{formatCOP(saldo)}</span>
+      </div>
+    );
+  }
+  if (saldo < 0) {
+    return (
+      <div
+        className={cx("flex items-center justify-between rounded-xl border border-red-300 bg-red-50", padding)}
+        title="Los descuentos (envíos y favores) superaron el efectivo recibido por el domiciliario."
+      >
+        <span className="flex items-center gap-2 text-sm font-bold text-red-700">
+          <ArrowLeftRight size={size === "lg" ? 18 : 14} /> A pagar al domiciliario
+        </span>
+        <span className={cx("font-display font-black text-red-700", valueCls)}>−{formatCOP(Math.abs(saldo))}</span>
+      </div>
+    );
+  }
+  return (
+    <div className={cx("flex items-center justify-between rounded-xl border border-sand bg-sand/40", padding)}>
+      <span className="text-sm font-bold text-cocoa/70">Saldo en cero</span>
+      <span className={cx("font-display font-black text-cocoa/70", valueCls)}>{formatCOP(0)}</span>
     </div>
   );
 }
@@ -322,9 +359,8 @@ export function CajeroBoard() {
                     </div>
                     <ArrowRight size={18} className="text-cocoa/40" />
                   </button>
-                  <div className="mt-4 flex items-center justify-between rounded-xl bg-pistachio/20 px-4 py-3">
-                    <span className="text-sm font-bold text-cocoa/70">Efectivo a entregar</span>
-                    <span className="font-display text-lg font-black text-cocoa">{formatCOP(cuadre.efectivoAEntregar)}</span>
+                  <div className="mt-4">
+                    <SaldoDomiciliarioCard saldo={cuadre.efectivoAEntregar} />
                   </div>
                   {cuadre.efectivoSobranteMixto > 0 && (
                     <div
@@ -525,6 +561,12 @@ function DetalleCajero({ facturas, nombre, onClose }: {
             <span>Descuento envío (pago mixto)</span>
             <span className="font-semibold text-cocoa">{formatCOP(cuadre.descuentoEnvioMixto)}</span>
           </div>
+          {cuadre.totalFavoresDescontados > 0 && (
+            <div className="flex justify-between text-cocoa/70">
+              <span>Total favores descontados</span>
+              <span className="font-semibold text-cocoa">{formatCOP(cuadre.totalFavoresDescontados)}</span>
+            </div>
+          )}
         </div>
 
         {cuadre.efectivoSobranteMixto > 0 && (
@@ -537,10 +579,7 @@ function DetalleCajero({ facturas, nombre, onClose }: {
           </div>
         )}
 
-        <div className="flex items-center justify-between rounded-xl bg-cocoa px-5 py-4 text-white">
-          <span className="flex items-center gap-2 font-bold"><Wallet size={18} /> Efectivo a entregar</span>
-          <span className="font-display text-2xl font-black">{formatCOP(cuadre.efectivoAEntregar)}</span>
-        </div>
+        <SaldoDomiciliarioCard saldo={cuadre.efectivoAEntregar} size="lg" />
       </div>
     </Modal>
   );
