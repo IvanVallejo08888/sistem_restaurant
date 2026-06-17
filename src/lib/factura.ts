@@ -1,10 +1,23 @@
-import { Factura, ItemFactura, MetodoPago, TipoFactura, TipoMixtoFavor } from "@/types";
+import { Factura, ItemFactura, MetodoPago, TipoAjuste, TipoFactura, TipoMixtoFavor } from "@/types";
 
 export const subtotalDe = (items: ItemFactura[]) =>
   items.reduce((acc, it) => acc + it.valor * it.cantidad, 0);
 
 export const totalDe = (items: ItemFactura[], valorDomicilio = 0) =>
   subtotalDe(items) + (valorDomicilio || 0);
+
+// Opciones de "Valor fijo" / "Porcentaje" para Aplicar descuento y Costo adicional
+// (mesa, domicilio, reserva-mesa, reserva-domicilio). Reutiliza el mismo estilo de
+// botones que Método de pago.
+export const tiposAjuste: { value: TipoAjuste; label: string }[] = [
+  { value: "fijo", label: "Valor fijo" },
+  { value: "porcentaje", label: "Porcentaje" },
+];
+
+// Monto en pesos de un ajuste (descuento o costo adicional) según su tipo.
+// "fijo" usa el valor ingresado directo; "porcentaje" se calcula sobre `base`.
+export const calcularAjuste = (tipo: TipoAjuste, valorIngresado: number, base: number) =>
+  tipo === "porcentaje" ? Math.round((base * valorIngresado) / 100) : valorIngresado;
 
 export type MetodoPagoEstandar = Exclude<MetodoPago, "mixto" | "domiciliario">;
 

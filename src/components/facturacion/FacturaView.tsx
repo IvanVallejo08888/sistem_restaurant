@@ -43,6 +43,18 @@ export function FacturaView({ factura }: { factura: Factura }) {
         {!!factura.valorDomicilio && (
           <div className="flex justify-between text-cocoa/70"><span>Domicilio</span><span>{formatCOP(factura.valorDomicilio)}</span></div>
         )}
+        {!!factura.valorDescuento && (
+          <div className="flex justify-between text-raspberry-dark">
+            <span>Descuento {factura.tipoDescuento === "porcentaje" ? `(${factura.porcentajeDescuento}%)` : "(valor fijo)"}</span>
+            <span>−{formatCOP(factura.valorDescuento)}</span>
+          </div>
+        )}
+        {!!factura.valorCostoAdicional && (
+          <div className="flex justify-between text-cocoa/70">
+            <span>Costo adicional {factura.tipoCostoAdicional === "porcentaje" ? `(${factura.porcentajeCostoAdicional}%)` : "(valor fijo)"}</span>
+            <span>+{formatCOP(factura.valorCostoAdicional)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-base font-black text-cocoa"><span>Total</span><span>{formatCOP(factura.total)}</span></div>
         <div className="flex justify-between text-cocoa/70"><span>Pago</span><span>{labelMetodo(factura.metodoPago)}</span></div>
       </div>

@@ -66,6 +66,9 @@ export type MedioTransferencia = "nequi" | "bancolombia" | "daviplata" | "datafo
 // Combinación de pago mixto exclusiva de favores (metodoPago === "mixto" && tipo === "favor")
 export type TipoMixtoFavor = "transferencia-domiciliario" | "efectivo-domiciliario" | "efectivo-transferencia";
 
+// Descuento / costo adicional en Mesa, Domicilio, Reserva Mesa y Reserva Domicilio
+export type TipoAjuste = "fijo" | "porcentaje";
+
 export type TipoFactura = "mesa" | "domicilio" | "favor" | "reserva-domicilio" | "reserva-mesa";
 
 export type EstadoFactura = "pendiente" | "listo" | "completado";
@@ -120,6 +123,13 @@ export type Factura = {
   // Pago mixto (efectivo + transferencia en la misma factura)
   valorEfectivo?: number;       // parte pagada en efectivo (solo cuando metodoPago === "mixto")
   valorTransferencia?: number;  // parte pagada por transferencia (solo cuando metodoPago === "mixto")
+  // Descuento y costo adicional (mesa/domicilio/reserva-*, no aplica a favores)
+  tipoDescuento?: TipoAjuste;
+  valorDescuento?: number;        // monto ya calculado en pesos, sea fijo o derivado de porcentaje
+  porcentajeDescuento?: number;   // solo si tipoDescuento === "porcentaje" (valor original 0-100)
+  tipoCostoAdicional?: TipoAjuste;
+  valorCostoAdicional?: number;
+  porcentajeCostoAdicional?: number;
   // Validaciones de cocina (persisten en Supabase para sobrevivir recargas)
   heladeriaLista?: boolean;  // sección heladería completada por cocina
   comidasListas?: boolean;   // sección comidas rápidas completada por cocina

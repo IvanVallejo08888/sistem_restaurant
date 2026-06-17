@@ -15,9 +15,9 @@ import { Modal } from "@/components/ui/Modal";
 import { formatCOP, cx, uid, now } from "@/lib/utils";
 import {
   subtotalDe, totalDe, metodosPagoOrden, metodosPagoFavor, mediosTransferencia,
-  combosMixtoFavor, comboFavorIncluye, calcFavorMixto,
+  combosMixtoFavor, comboFavorIncluye, calcFavorMixto, tiposAjuste, calcularAjuste,
 } from "@/lib/factura";
-import { Factura, ItemFactura, MetodoPago, MedioTransferencia, TipoFactura, TipoMixtoFavor } from "@/types";
+import { Factura, ItemFactura, MetodoPago, MedioTransferencia, TipoAjuste, TipoFactura, TipoMixtoFavor } from "@/types";
 
 export function Facturar() {
   const localId = useSession((s) => s.localId)!;
@@ -38,6 +38,11 @@ export function Facturar() {
   // Para pago Mixto en órdenes normales:
   const [valorEfectivo, setValorEfectivo] = useState(0);
   const [medioOrden, setMedioOrden] = useState<MedioTransferencia | "">("");
+  // Descuento y costo adicional (mesa/domicilio/reserva-*; no aplica a Favor)
+  const [tipoDescuento, setTipoDescuento] = useState<TipoAjuste>("fijo");
+  const [valorDescuentoInput, setValorDescuentoInput] = useState(0);
+  const [tipoCostoAdicional, setTipoCostoAdicional] = useState<TipoAjuste>("fijo");
+  const [valorCostoAdicionalInput, setValorCostoAdicionalInput] = useState(0);
 
   // ── estado para reservas ─────────────────────────────────────────────
   const [fechaReserva, setFechaReserva] = useState("");
@@ -84,9 +89,23 @@ export function Facturar() {
   // ── cálculos ──────────────────────────────────────────────────────────
   const subtotal = useMemo(() => subtotalDe(items), [items]);
   const esDomicilioTipo = tipo === "domicilio" || tipo === "reserva-domicilio";
-  const total = useMemo(
+  // Subtotal + domicilio (si aplica), antes de descuento/costo adicional.
+  const subtotalConDomicilio = useMemo(
     () => totalDe(items, esDomicilioTipo ? valorDomicilio : 0),
     [items, valorDomicilio, esDomicilioTipo]
+  );
+
+  // Descuento: "fijo" se resta directo (limitado al disponible); "porcentaje" se
+  // calcula sobre subtotalConDomicilio. Costo adicional: misma lógica pero suma,
+  // y su porcentaje también se calcula sobre subtotalConDomicilio (antes de descuentos).
+  const descuentoBruto = calcularAjuste(tipoDescuento, valorDescuentoInput, subtotalConDomicilio);
+  const descuentoAjustado = descuentoBruto > subtotalConDomicilio;
+  const descuentoCalculado = Math.min(descuentoBruto, subtotalConDomicilio);
+  const costoAdicionalCalculado = calcularAjuste(tipoCostoAdicional, valorCostoAdicionalInput, subtotalConDomicilio);
+
+  const total = useMemo(
+    () => Math.max(0, subtotalConDomicilio - descuentoCalculado + costoAdicionalCalculado),
+    [subtotalConDomicilio, descuentoCalculado, costoAdicionalCalculado]
   );
   // Mixto: transferencia = total - efectivo
   const valorTransferencia = metodo === "mixto" ? Math.max(0, total - valorEfectivo) : 0;
@@ -125,6 +144,10 @@ export function Facturar() {
     setMetodo("efectivo");
     setValorEfectivo(0);
     setMedioOrden("");
+    setTipoDescuento("fijo");
+    setValorDescuentoInput(0);
+    setTipoCostoAdicional("fijo");
+    setValorCostoAdicionalInput(0);
     setCliente({ nombre: "", whatsapp: "", direccion: "", barrio: "" });
     setFechaReserva("");
     setHoraReserva("");
@@ -222,6 +245,13 @@ export function Facturar() {
         valorEfectivo: metodo === "mixto" ? valorEfectivo : undefined,
         valorTransferencia: metodo === "mixto" ? valorTransferencia : undefined,
         medioTransferencia: metodo === "mixto" ? (medioOrden as MedioTransferencia) : undefined,
+        // Descuento y costo adicional
+        tipoDescuento: descuentoCalculado > 0 ? tipoDescuento : undefined,
+        valorDescuento: descuentoCalculado > 0 ? descuentoCalculado : undefined,
+        porcentajeDescuento: descuentoCalculado > 0 && tipoDescuento === "porcentaje" ? valorDescuentoInput : undefined,
+        tipoCostoAdicional: costoAdicionalCalculado > 0 ? tipoCostoAdicional : undefined,
+        valorCostoAdicional: costoAdicionalCalculado > 0 ? costoAdicionalCalculado : undefined,
+        porcentajeCostoAdicional: costoAdicionalCalculado > 0 && tipoCostoAdicional === "porcentaje" ? valorCostoAdicionalInput : undefined,
         subtotal,
         total,
         fechaProgramada: (tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? fechaReserva : undefined,
@@ -709,6 +739,89 @@ export function Facturar() {
         )}
 
         <Card className="p-5">
+          <p className="mb-3 font-bold text-cocoa">Aplicar descuento</p>
+          <div className="grid grid-cols-2 gap-2">
+            {tiposAjuste.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => { setTipoDescuento(t.value); setValorDescuentoInput(0); }}
+                className={cx(
+                  "rounded-xl border px-3 py-2.5 text-sm font-bold transition",
+                  tipoDescuento === t.value
+                    ? "border-raspberry bg-raspberry text-white"
+                    : "border-sand bg-white text-cocoa hover:border-raspberry"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3">
+            {tipoDescuento === "fijo" ? (
+              <Input
+                label="Valor del descuento en COP"
+                type="number"
+                value={valorDescuentoInput || ""}
+                onChange={(e) => setValorDescuentoInput(Number(e.target.value) || 0)}
+              />
+            ) : (
+              <Input
+                label="Porcentaje de descuento"
+                type="number"
+                min={0}
+                max={100}
+                value={valorDescuentoInput || ""}
+                onChange={(e) => setValorDescuentoInput(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+              />
+            )}
+          </div>
+          {descuentoAjustado && (
+            <p className="mt-2 text-xs font-semibold text-raspberry-dark">
+              El descuento se ajustó a {formatCOP(subtotalConDomicilio)} porque superaba el total disponible.
+            </p>
+          )}
+        </Card>
+
+        <Card className="p-5">
+          <p className="mb-3 font-bold text-cocoa">Costo adicional</p>
+          <div className="grid grid-cols-2 gap-2">
+            {tiposAjuste.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => { setTipoCostoAdicional(t.value); setValorCostoAdicionalInput(0); }}
+                className={cx(
+                  "rounded-xl border px-3 py-2.5 text-sm font-bold transition",
+                  tipoCostoAdicional === t.value
+                    ? "border-raspberry bg-raspberry text-white"
+                    : "border-sand bg-white text-cocoa hover:border-raspberry"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3">
+            {tipoCostoAdicional === "fijo" ? (
+              <Input
+                label="Valor del costo adicional en COP"
+                type="number"
+                value={valorCostoAdicionalInput || ""}
+                onChange={(e) => setValorCostoAdicionalInput(Number(e.target.value) || 0)}
+              />
+            ) : (
+              <Input
+                label="Porcentaje de costo adicional"
+                type="number"
+                min={0}
+                max={100}
+                value={valorCostoAdicionalInput || ""}
+                onChange={(e) => setValorCostoAdicionalInput(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+              />
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-5">
           <p className="mb-3 font-bold text-cocoa">Método de pago</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {metodosPagoOrden.map((m) => (
@@ -773,6 +886,18 @@ export function Facturar() {
             <div className="flex justify-between text-cocoa/70"><span>Subtotal</span><span>{formatCOP(subtotal)}</span></div>
             {esDomicilioTipo && valorDomicilio > 0 && (
               <div className="flex justify-between text-cocoa/70"><span>Domicilio</span><span>{formatCOP(valorDomicilio)}</span></div>
+            )}
+            {descuentoCalculado > 0 && (
+              <div className="flex justify-between text-raspberry-dark">
+                <span>Descuento {tipoDescuento === "porcentaje" ? `(${valorDescuentoInput}%)` : ""}</span>
+                <span>−{formatCOP(descuentoCalculado)}</span>
+              </div>
+            )}
+            {costoAdicionalCalculado > 0 && (
+              <div className="flex justify-between text-cocoa/70">
+                <span>Costo adicional {tipoCostoAdicional === "porcentaje" ? `(${valorCostoAdicionalInput}%)` : ""}</span>
+                <span>+{formatCOP(costoAdicionalCalculado)}</span>
+              </div>
             )}
             <div className="flex justify-between border-t border-sand pt-2 text-lg font-black text-cocoa">
               <span>Total</span><span>{formatCOP(total)}</span>

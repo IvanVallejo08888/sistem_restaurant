@@ -96,6 +96,13 @@ create table if not exists facturas (
   tipo_mixto_favor  text,            -- 'transferencia-domiciliario'|'efectivo-domiciliario'|'efectivo-transferencia'; solo si tipo='favor' y metodo_pago='mixto'
   valor_domiciliario_adelantado numeric, -- dinero propio que adelantó el domiciliario
   efectivo_sobrante_favor numeric,  -- sobrante de efectivo a entregar, calculado al guardar el favor
+  -- Descuento y costo adicional (mesa/domicilio/reserva-*; no aplica a favores)
+  tipo_descuento    text,            -- 'fijo'|'porcentaje'; null si no se aplicó descuento
+  valor_descuento   numeric,         -- monto ya calculado en pesos (fijo o derivado de porcentaje)
+  porcentaje_descuento numeric,      -- solo si tipo_descuento='porcentaje' (0-100, valor original ingresado)
+  tipo_costo_adicional text,         -- 'fijo'|'porcentaje'; null si no se aplicó costo adicional
+  valor_costo_adicional numeric,     -- monto ya calculado en pesos
+  porcentaje_costo_adicional numeric, -- solo si tipo_costo_adicional='porcentaje' (0-100)
   -- Validaciones de cocina (persisten en BD para sobrevivir recargas)
   heladeria_lista   boolean not null default false,
   comidas_listas    boolean not null default false,
@@ -123,6 +130,12 @@ alter table facturas add column if not exists valor_transferencia numeric;
 alter table facturas add column if not exists tipo_mixto_favor text;
 alter table facturas add column if not exists valor_domiciliario_adelantado numeric;
 alter table facturas add column if not exists efectivo_sobrante_favor numeric;
+alter table facturas add column if not exists tipo_descuento text;
+alter table facturas add column if not exists valor_descuento numeric;
+alter table facturas add column if not exists porcentaje_descuento numeric;
+alter table facturas add column if not exists tipo_costo_adicional text;
+alter table facturas add column if not exists valor_costo_adicional numeric;
+alter table facturas add column if not exists porcentaje_costo_adicional numeric;
 
 -- Índices por fecha para que las queries de "hoy" sean eficientes
 create index if not exists facturas_creado_en_idx on facturas(creado_en);

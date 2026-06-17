@@ -26,7 +26,10 @@ export const generarFacturaPDF = async (factura: Factura, nombreLocal: string): 
   const { default: JsPDF } = await import("jspdf");
 
   // Altura dinámica: cabecera + filas de ítems + totales + pie.
-  const alto = 95 + factura.items.length * 6 + (factura.metodoPago === "mixto" ? 6 : 0);
+  const alto = 95 + factura.items.length * 6
+    + (factura.metodoPago === "mixto" ? 6 : 0)
+    + (factura.valorDescuento ? 4 : 0)
+    + (factura.valorCostoAdicional ? 4 : 0);
   const doc: jsPDF = new JsPDF({ orientation: "portrait", unit: "mm", format: [ANCHO, alto] });
 
   let y = 10;
@@ -90,6 +93,18 @@ export const generarFacturaPDF = async (factura: Factura, nombreLocal: string): 
   if (factura.valorDomicilio) {
     doc.text("Domicilio:", MARGEN, y);
     doc.text(formatCOP(factura.valorDomicilio), ANCHO - MARGEN, y, { align: "right" });
+    y += 4;
+  }
+  if (factura.valorDescuento) {
+    const detalle = factura.tipoDescuento === "porcentaje" ? ` (${factura.porcentajeDescuento}%)` : "";
+    doc.text(`Descuento${detalle}:`, MARGEN, y);
+    doc.text(`-${formatCOP(factura.valorDescuento)}`, ANCHO - MARGEN, y, { align: "right" });
+    y += 4;
+  }
+  if (factura.valorCostoAdicional) {
+    const detalle = factura.tipoCostoAdicional === "porcentaje" ? ` (${factura.porcentajeCostoAdicional}%)` : "";
+    doc.text(`Costo adicional${detalle}:`, MARGEN, y);
+    doc.text(`+${formatCOP(factura.valorCostoAdicional)}`, ANCHO - MARGEN, y, { align: "right" });
     y += 4;
   }
   doc.setFont("helvetica", "bold");

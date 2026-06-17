@@ -157,6 +157,12 @@ export const rowToFactura = (r: any): Factura => ({
   tipoMixtoFavor: r.tipo_mixto_favor ?? undefined,
   valorDomiciliarioAdelantado: r.valor_domiciliario_adelantado != null ? Number(r.valor_domiciliario_adelantado) : undefined,
   efectivoSobranteFavor: r.efectivo_sobrante_favor != null ? Number(r.efectivo_sobrante_favor) : undefined,
+  tipoDescuento: r.tipo_descuento ?? undefined,
+  valorDescuento: r.valor_descuento != null ? Number(r.valor_descuento) : undefined,
+  porcentajeDescuento: r.porcentaje_descuento != null ? Number(r.porcentaje_descuento) : undefined,
+  tipoCostoAdicional: r.tipo_costo_adicional ?? undefined,
+  valorCostoAdicional: r.valor_costo_adicional != null ? Number(r.valor_costo_adicional) : undefined,
+  porcentajeCostoAdicional: r.porcentaje_costo_adicional != null ? Number(r.porcentaje_costo_adicional) : undefined,
   heladeriaLista: r.heladeria_lista ?? false,
   comidasListas: r.comidas_listas ?? false,
   deletedAt: r.deleted_at ?? undefined,
@@ -193,6 +199,12 @@ export const facturaToRow = (f: Factura) => ({
   tipo_mixto_favor: f.tipoMixtoFavor ?? null,
   valor_domiciliario_adelantado: f.valorDomiciliarioAdelantado ?? null,
   efectivo_sobrante_favor: f.efectivoSobranteFavor ?? null,
+  tipo_descuento: f.tipoDescuento ?? null,
+  valor_descuento: f.valorDescuento ?? null,
+  porcentaje_descuento: f.porcentajeDescuento ?? null,
+  tipo_costo_adicional: f.tipoCostoAdicional ?? null,
+  valor_costo_adicional: f.valorCostoAdicional ?? null,
+  porcentaje_costo_adicional: f.porcentajeCostoAdicional ?? null,
   heladeria_lista: f.heladeriaLista ?? false,
   comidas_listas: f.comidasListas ?? false,
   deleted_at: f.deletedAt ?? null,
@@ -248,6 +260,12 @@ export const facturaPatchToRow = (f: Partial<Factura>) => {
   if (f.tipoMixtoFavor !== undefined) row.tipo_mixto_favor = f.tipoMixtoFavor;
   if (f.valorDomiciliarioAdelantado !== undefined) row.valor_domiciliario_adelantado = f.valorDomiciliarioAdelantado;
   if (f.efectivoSobranteFavor !== undefined) row.efectivo_sobrante_favor = f.efectivoSobranteFavor;
+  if (f.tipoDescuento !== undefined) row.tipo_descuento = f.tipoDescuento;
+  if (f.valorDescuento !== undefined) row.valor_descuento = f.valorDescuento;
+  if (f.porcentajeDescuento !== undefined) row.porcentaje_descuento = f.porcentajeDescuento;
+  if (f.tipoCostoAdicional !== undefined) row.tipo_costo_adicional = f.tipoCostoAdicional;
+  if (f.valorCostoAdicional !== undefined) row.valor_costo_adicional = f.valorCostoAdicional;
+  if (f.porcentajeCostoAdicional !== undefined) row.porcentaje_costo_adicional = f.porcentajeCostoAdicional;
   if (f.heladeriaLista !== undefined) row.heladeria_lista = f.heladeriaLista;
   if (f.comidasListas !== undefined) row.comidas_listas = f.comidasListas;
   if (f.deletedAt !== undefined) row.deleted_at = f.deletedAt;
