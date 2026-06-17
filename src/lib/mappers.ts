@@ -163,6 +163,8 @@ export const rowToFactura = (r: any): Factura => ({
   tipoCostoAdicional: r.tipo_costo_adicional ?? undefined,
   valorCostoAdicional: r.valor_costo_adicional != null ? Number(r.valor_costo_adicional) : undefined,
   porcentajeCostoAdicional: r.porcentaje_costo_adicional != null ? Number(r.porcentaje_costo_adicional) : undefined,
+  nombreQuienEnvia: r.nombre_quien_envia ?? undefined,
+  contactoQuienEnvia: r.contacto_quien_envia ?? undefined,
   heladeriaLista: r.heladeria_lista ?? false,
   comidasListas: r.comidas_listas ?? false,
   deletedAt: r.deleted_at ?? undefined,
@@ -205,6 +207,8 @@ export const facturaToRow = (f: Factura) => ({
   tipo_costo_adicional: f.tipoCostoAdicional ?? null,
   valor_costo_adicional: f.valorCostoAdicional ?? null,
   porcentaje_costo_adicional: f.porcentajeCostoAdicional ?? null,
+  nombre_quien_envia: f.nombreQuienEnvia ?? null,
+  contacto_quien_envia: f.contactoQuienEnvia ?? null,
   heladeria_lista: f.heladeriaLista ?? false,
   comidas_listas: f.comidasListas ?? false,
   deleted_at: f.deletedAt ?? null,
@@ -266,6 +270,8 @@ export const facturaPatchToRow = (f: Partial<Factura>) => {
   if (f.tipoCostoAdicional !== undefined) row.tipo_costo_adicional = f.tipoCostoAdicional;
   if (f.valorCostoAdicional !== undefined) row.valor_costo_adicional = f.valorCostoAdicional;
   if (f.porcentajeCostoAdicional !== undefined) row.porcentaje_costo_adicional = f.porcentajeCostoAdicional;
+  if (f.nombreQuienEnvia !== undefined) row.nombre_quien_envia = f.nombreQuienEnvia;
+  if (f.contactoQuienEnvia !== undefined) row.contacto_quien_envia = f.contactoQuienEnvia;
   if (f.heladeriaLista !== undefined) row.heladeria_lista = f.heladeriaLista;
   if (f.comidasListas !== undefined) row.comidas_listas = f.comidasListas;
   if (f.deletedAt !== undefined) row.deleted_at = f.deletedAt;

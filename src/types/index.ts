@@ -69,7 +69,11 @@ export type TipoMixtoFavor = "transferencia-domiciliario" | "efectivo-domiciliar
 // Descuento / costo adicional en Mesa, Domicilio, Reserva Mesa y Reserva Domicilio
 export type TipoAjuste = "fijo" | "porcentaje";
 
-export type TipoFactura = "mesa" | "domicilio" | "favor" | "reserva-domicilio" | "reserva-mesa";
+// "regalo" y "reserva-regalo" reutilizan toda la lógica de domicilio/reserva-domicilio
+// (cocina, despachador, cuadre de caja); solo agregan el bloque "Quién envía".
+export type TipoFactura =
+  | "mesa" | "domicilio" | "favor" | "reserva-domicilio" | "reserva-mesa"
+  | "regalo" | "reserva-regalo";
 
 export type EstadoFactura = "pendiente" | "listo" | "completado";
 
@@ -92,12 +96,15 @@ export type Factura = {
   // Mesa
   mesaId?: ID;
   mesaNombre?: string;
-  // Domicilio
+  // Domicilio (también representa a "quien recibe" en tipo regalo/reserva-regalo)
   clienteNombre?: string;
   clienteWhatsapp?: string;
   direccion?: string;
   barrio?: string;
   valorDomicilio?: number;
+  // Regalo / Reserva Regalo: quien envía (solo aplica a estos dos tipos)
+  nombreQuienEnvia?: string;
+  contactoQuienEnvia?: string;
   // Comunes
   items: ItemFactura[];
   metodoPago: MetodoPago;

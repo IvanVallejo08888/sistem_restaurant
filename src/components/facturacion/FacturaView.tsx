@@ -1,7 +1,7 @@
 "use client";
 import { Factura } from "@/types";
 import { formatCOP, formatHora12 } from "@/lib/utils";
-import { folio, labelMetodo } from "@/lib/factura";
+import { esRegaloLike, folio, labelMetodo } from "@/lib/factura";
 import { useData } from "@/store/dataStore";
 
 // Vista de factura (recibo). En Fase 2 se exportará como PNG.
@@ -18,6 +18,14 @@ export function FacturaView({ factura }: { factura: Factura }) {
         <p className="text-sm font-semibold text-cocoa">Mesa: {factura.mesaNombre}</p>
       ) : factura.tipo === "favor" ? (
         <p className="text-sm font-semibold text-cocoa">Favor: {factura.nombreFavor}</p>
+      ) : esRegaloLike(factura.tipo) ? (
+        <div className="space-y-1.5 text-sm text-cocoa/80">
+          <p><span className="font-bold text-cocoa">Envía:</span> {factura.nombreQuienEnvia}{factura.contactoQuienEnvia ? ` · ${factura.contactoQuienEnvia}` : ""}</p>
+          <p>
+            <span className="font-bold text-cocoa">Para:</span> {factura.clienteNombre}
+            {factura.direccion ? ` · ${factura.direccion}` : ""}{factura.barrio ? ` · ${factura.barrio}` : ""}
+          </p>
+        </div>
       ) : (
         <div className="text-sm text-cocoa/80">
           <p className="font-semibold text-cocoa">{factura.clienteNombre}</p>

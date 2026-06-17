@@ -115,7 +115,20 @@ const PREFIJOS: Record<TipoFactura, string> = {
   favor: "F",
   "reserva-domicilio": "RD",
   "reserva-mesa": "RM",
+  regalo: "G",
+  "reserva-regalo": "RG",
 };
+
+// "Quien recibe" en regalo/reserva-regalo se modela con los mismos campos de
+// domicilio (clienteNombre/direccion/barrio); esta utilidad evita repetir la
+// condición de 4 valores en cada componente que necesita tratarlos igual.
+export const esDomicilioLike = (tipo: TipoFactura) =>
+  tipo === "domicilio" || tipo === "reserva-domicilio" || tipo === "regalo" || tipo === "reserva-regalo";
+
+export const esReservaLike = (tipo: TipoFactura) =>
+  tipo === "reserva-domicilio" || tipo === "reserva-mesa" || tipo === "reserva-regalo";
+
+export const esRegaloLike = (tipo: TipoFactura) => tipo === "regalo" || tipo === "reserva-regalo";
 
 export const folio = (f: Factura) =>
   `${PREFIJOS[f.tipo] ?? "?"}-${String(f.consecutivo).padStart(4, "0")}`;

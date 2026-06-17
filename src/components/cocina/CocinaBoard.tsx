@@ -10,7 +10,7 @@ import { folio } from "@/lib/factura";
 import { playDing } from "@/lib/sound";
 import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
-import { Factura, Producto } from "@/types";
+import { Factura, Producto, TipoFactura } from "@/types";
 
 type TabCocina = "domicilio" | "mesa" | "reserva-domicilio" | "reserva-mesa";
 
@@ -21,11 +21,26 @@ const TABS_COCINA: { key: TabCocina; label: (n: number) => string; icon: React.R
   { key: "reserva-mesa", label: (n) => `Res. Mesa (${n})`, icon: <CalendarClock size={16} /> },
 ];
 
-const TIPO_LABEL: Record<TabCocina, string> = {
+// "regalo"/"reserva-regalo" no tienen pestaña propia: se mezclan dentro de
+// "domicilio"/"reserva-domicilio" (mismo flujo de cocina, sin filtro nuevo).
+const TAB_DE_TIPO: Record<Exclude<TipoFactura, "favor">, TabCocina> = {
+  domicilio: "domicilio",
+  regalo: "domicilio",
+  mesa: "mesa",
+  "reserva-domicilio": "reserva-domicilio",
+  "reserva-regalo": "reserva-domicilio",
+  "reserva-mesa": "reserva-mesa",
+};
+
+// Etiqueta visible en la tarjeta de cada pedido (distingue "Regalo" de "Domicilio"
+// aunque ambos compartan la misma pestaña/contador).
+const TIPO_LABEL: Record<Exclude<TipoFactura, "favor">, string> = {
   domicilio: "Domicilio",
   mesa: "Mesa",
   "reserva-domicilio": "Res. Domicilio",
   "reserva-mesa": "Res. Mesa",
+  regalo: "Regalo",
+  "reserva-regalo": "Reserva Regalo",
 };
 
 // ── Sombras dinámicas por categoría ──────────────────────────────────────────
@@ -84,7 +99,7 @@ function CocinaCard({ factura }: { factura: Factura }) {
 
   const shadowStyle = calcularSombra(factura.items, productos);
   const esMesaTipo = factura.tipo === "mesa" || factura.tipo === "reserva-mesa";
-  const tipoLabel = TIPO_LABEL[factura.tipo as TabCocina] ?? factura.tipo;
+  const tipoLabel = TIPO_LABEL[factura.tipo as Exclude<TipoFactura, "favor">] ?? factura.tipo;
 
   return (
     <div
@@ -279,10 +294,10 @@ export function CocinaBoard() {
   }, [facturas, localId]);
 
   const byTipo: Record<TabCocina, Factura[]> = useMemo(() => ({
-    domicilio: pendientes.filter((f) => f.tipo === "domicilio"),
-    mesa: pendientes.filter((f) => f.tipo === "mesa"),
-    "reserva-domicilio": pendientes.filter((f) => f.tipo === "reserva-domicilio"),
-    "reserva-mesa": pendientes.filter((f) => f.tipo === "reserva-mesa"),
+    domicilio: pendientes.filter((f) => TAB_DE_TIPO[f.tipo as Exclude<TipoFactura, "favor">] === "domicilio"),
+    mesa: pendientes.filter((f) => TAB_DE_TIPO[f.tipo as Exclude<TipoFactura, "favor">] === "mesa"),
+    "reserva-domicilio": pendientes.filter((f) => TAB_DE_TIPO[f.tipo as Exclude<TipoFactura, "favor">] === "reserva-domicilio"),
+    "reserva-mesa": pendientes.filter((f) => TAB_DE_TIPO[f.tipo as Exclude<TipoFactura, "favor">] === "reserva-mesa"),
   }), [pendientes]);
 
   const activos = byTipo[tab];

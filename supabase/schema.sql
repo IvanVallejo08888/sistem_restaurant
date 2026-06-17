@@ -103,6 +103,10 @@ create table if not exists facturas (
   tipo_costo_adicional text,         -- 'fijo'|'porcentaje'; null si no se aplicó costo adicional
   valor_costo_adicional numeric,     -- monto ya calculado en pesos
   porcentaje_costo_adicional numeric, -- solo si tipo_costo_adicional='porcentaje' (0-100)
+  -- Regalo / Reserva Regalo: quien envía (solo si tipo='regalo' o 'reserva-regalo';
+  -- "quien recibe" reutiliza cliente_nombre/direccion/barrio, igual que domicilio)
+  nombre_quien_envia text,
+  contacto_quien_envia text,
   -- Validaciones de cocina (persisten en BD para sobrevivir recargas)
   heladeria_lista   boolean not null default false,
   comidas_listas    boolean not null default false,
@@ -136,13 +140,18 @@ alter table facturas add column if not exists porcentaje_descuento numeric;
 alter table facturas add column if not exists tipo_costo_adicional text;
 alter table facturas add column if not exists valor_costo_adicional numeric;
 alter table facturas add column if not exists porcentaje_costo_adicional numeric;
+alter table facturas add column if not exists nombre_quien_envia text;
+alter table facturas add column if not exists contacto_quien_envia text;
 
 -- Índices por fecha para que las queries de "hoy" sean eficientes
 create index if not exists facturas_creado_en_idx on facturas(creado_en);
 create index if not exists gastos_creado_en_idx on gastos(creado_en);
 -- medio_transferencia ya cubre nequi | bancolombia | daviplata | datafono (sin check constraint)
 
--- Los nuevos valores de "tipo" son: 'mesa','domicilio','favor','reserva-domicilio','reserva-mesa'
+-- Los nuevos valores de "tipo" son: 'mesa','domicilio','favor','reserva-domicilio','reserva-mesa','regalo','reserva-regalo'
+-- 'regalo' y 'reserva-regalo' reutilizan cliente_nombre/direccion/barrio (quien recibe) y
+-- valor_domicilio igual que domicilio/reserva-domicilio; solo agregan nombre_quien_envia/contacto_quien_envia.
+-- Como "tipo" no tiene check constraint, no se requiere migración para aceptar estos valores nuevos.
 -- Los nuevos valores de "metodo_pago" son: 'efectivo','nequi','bancolombia','daviplata','datafono','mixto','domiciliario'
 -- (sin check constraint para no romper datos existentes; la validación ocurre en la app)
 

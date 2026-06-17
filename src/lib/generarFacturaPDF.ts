@@ -7,7 +7,7 @@
 // en el momento de la captura.
 import type jsPDF from "jspdf";
 import { Factura } from "@/types";
-import { folio, labelMetodo } from "./factura";
+import { esRegaloLike, folio, labelMetodo } from "./factura";
 import { formatCOP, formatFecha, formatHora12 } from "./utils";
 import { EMPRESA } from "./configuracionEmpresa";
 
@@ -15,11 +15,19 @@ const ANCHO = 80; // mm, formato ticket
 const MARGEN = 5;
 const CENTRO = ANCHO / 2;
 
-function nombreDestino(f: Factura): string | null {
-  if (f.tipo === "mesa" || f.tipo === "reserva-mesa") return f.mesaNombre ? `Mesa: ${f.mesaNombre}` : null;
-  if (f.tipo === "favor") return f.nombreFavor ? `Favor: ${f.nombreFavor}` : null;
-  if (f.direccion) return `Domicilio: ${f.direccion}${f.barrio ? ` · ${f.barrio}` : ""}`;
-  return null;
+// Líneas de "destino" bajo el encabezado. Regalo/Reserva Regalo muestran
+// Envía/Para en vez del bloque genérico de domicilio.
+function lineasDestino(f: Factura): string[] {
+  if (f.tipo === "mesa" || f.tipo === "reserva-mesa") return f.mesaNombre ? [`Mesa: ${f.mesaNombre}`] : [];
+  if (f.tipo === "favor") return f.nombreFavor ? [`Favor: ${f.nombreFavor}`] : [];
+  if (esRegaloLike(f.tipo)) {
+    return [
+      `Envía: ${f.nombreQuienEnvia ?? ""}${f.contactoQuienEnvia ? ` · ${f.contactoQuienEnvia}` : ""}`,
+      `Para: ${f.clienteNombre ?? ""}${f.direccion ? ` · ${f.direccion}` : ""}${f.barrio ? ` · ${f.barrio}` : ""}`,
+    ];
+  }
+  if (f.direccion) return [`Domicilio: ${f.direccion}${f.barrio ? ` · ${f.barrio}` : ""}`];
+  return [];
 }
 
 export const generarFacturaPDF = async (factura: Factura, nombreLocal: string): Promise<File> => {
@@ -29,7 +37,8 @@ export const generarFacturaPDF = async (factura: Factura, nombreLocal: string): 
   const alto = 95 + factura.items.length * 6
     + (factura.metodoPago === "mixto" ? 6 : 0)
     + (factura.valorDescuento ? 4 : 0)
-    + (factura.valorCostoAdicional ? 4 : 0);
+    + (factura.valorCostoAdicional ? 4 : 0)
+    + (esRegaloLike(factura.tipo) ? 4 : 0); // línea extra de "Para" (Envía/Para = 2 líneas)
   const doc: jsPDF = new JsPDF({ orientation: "portrait", unit: "mm", format: [ANCHO, alto] });
 
   let y = 10;
@@ -64,11 +73,11 @@ export const generarFacturaPDF = async (factura: Factura, nombreLocal: string): 
   doc.text(`Fecha: ${formatFecha(factura.creadoEn)}   Hora: ${formatHora12(factura.creadoEn)}`, CENTRO, y, { align: "center" });
   y += 2;
 
-  const destino = nombreDestino(factura);
-  if (destino) {
+  const destino = lineasDestino(factura);
+  if (destino.length > 0) {
     linea();
-    doc.text(destino, MARGEN, y);
-    y += 2;
+    destino.forEach((l) => { doc.text(l, MARGEN, y); y += 3.5; });
+    y -= 1.5;
   }
 
   linea();

@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import {
-  Armchair, Bike, Check, Clock, Users, Plus, Minus, ListMusic, Gift, CalendarClock,
+  Armchair, Bike, Check, Clock, Users, Plus, Minus, ListMusic, Mail, Gift, CalendarClock,
 } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Empty } from "@/components/ui/Empty";
 import { CompartirFactura } from "@/components/facturacion/CompartirFactura";
+import { esDomicilioLike, esRegaloLike } from "@/lib/factura";
 import { Factura } from "@/types";
 
 type Tab = "domicilios" | "mesas" | "domiciliarios";
@@ -43,9 +44,10 @@ export function DespachadorBoard() {
     [facturas, localId]
   );
 
-  // Domicilios pendientes de asignar: incluye domicilio, favor y reserva-domicilio
+  // Domicilios pendientes de asignar: domicilio, favor, reserva-domicilio,
+  // y regalo/reserva-regalo (se comportan exactamente igual que domicilio).
   const domiciliosPend = listos.filter(
-    (f) => (f.tipo === "domicilio" || f.tipo === "favor" || f.tipo === "reserva-domicilio") && !f.domiciliarioId
+    (f) => (f.tipo === "favor" || esDomicilioLike(f.tipo)) && !f.domiciliarioId
   );
   // Mesas: incluye mesa y reserva-mesa
   const mesasPendientes = listos.filter((f) => (f.tipo === "mesa" || f.tipo === "reserva-mesa") && !f.servida);
@@ -89,10 +91,15 @@ export function DespachadorBoard() {
                   <div className="flex items-center gap-2">
                     {f.tipo === "favor" && (
                       <span className="rounded-full bg-pistachio/30 px-2 py-0.5 text-xs font-bold text-cocoa">
-                        <Gift size={10} className="inline" /> Favor
+                        <Mail size={10} className="inline" /> Favor
                       </span>
                     )}
-                    {f.tipo === "reserva-domicilio" && (
+                    {esRegaloLike(f.tipo) && (
+                      <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">
+                        <Gift size={10} className="inline" /> Regalo
+                      </span>
+                    )}
+                    {(f.tipo === "reserva-domicilio" || f.tipo === "reserva-regalo") && (
                       <span className="rounded-full bg-raspberry-light px-2 py-0.5 text-xs font-bold text-raspberry-dark">
                         <CalendarClock size={10} className="inline" /> Reserva
                       </span>
@@ -343,6 +350,7 @@ function PerfilDomiciliario({
                   <td className="px-3 py-2 text-cocoa">
                     {folio(f)}
                     {f.tipo === "favor" && <span className="ml-1 text-xs text-cocoa/50">(Favor)</span>}
+                    {esRegaloLike(f.tipo) && <span className="ml-1 text-xs text-cocoa/50">(Regalo)</span>}
                     <br />
                     <span className="text-xs text-cocoa/50">{f.barrio || f.nombreFavor || "—"}</span>
                   </td>

@@ -1,7 +1,7 @@
 // Cálculos de reportes, caja y cajero. Reglas de negocio centralizadas.
 
 import { Factura, Gasto, MetodoPago, Producto } from "@/types";
-import { esTransferencia } from "./factura";
+import { esDomicilioLike, esTransferencia } from "./factura";
 
 // ── Filtros de fecha ──────────────────────────────────────────────────────────
 
@@ -125,14 +125,12 @@ export const utilidadDelDia = (facturas: Factura[], gastos: Gasto[]) => {
 
 // ── Estadísticas de domicilios ────────────────────────────────────────────────
 
-// Total de ingresos de domicilios (domicilio + reserva-domicilio) por domiciliario.
+// Total de ingresos de domicilios (domicilio + reserva-domicilio, incluye regalo/reserva-regalo) por domiciliario.
 export const cajaDomiciliosPorDomiciliario = (
   facturas: Factura[],
   domiciliarios: { id: string; nombreCompleto: string }[]
 ) => {
-  const domFs = facturas.filter(
-    (f) => f.tipo === "domicilio" || f.tipo === "reserva-domicilio"
-  );
+  const domFs = facturas.filter((f) => esDomicilioLike(f.tipo));
   const total = totalResumen(cajaPorMetodosCompleto(domFs));
   const porDomiciliario = new Map<string, { nombre: string; total: number }>();
   domFs.forEach((f) => {
@@ -150,7 +148,7 @@ export const cajaDomiciliosPorDomiciliario = (
 // Ingresos por concepto de envío (valorDomicilio) desglosados por método.
 export const cajaIngresosDomicilios = (facturas: Factura[]): ResumenMetodos & { total: number } => {
   const domFs = facturas.filter(
-    (f) => (f.tipo === "domicilio" || f.tipo === "reserva-domicilio") && (f.valorDomicilio ?? 0) > 0
+    (f) => esDomicilioLike(f.tipo) && (f.valorDomicilio ?? 0) > 0
   );
   const r = resumenMetodosVacio();
   domFs.forEach((f) => {
@@ -336,7 +334,7 @@ export const utilidadDia = (facturas: Factura[], gastos = 0) =>
 
 export const rankingBarrios = (facturas: Factura[]) => {
   const m = new Map<string, number>();
-  facturas.filter((f) => f.tipo === "domicilio" && f.barrio).forEach((f) => {
+  facturas.filter((f) => (f.tipo === "domicilio" || f.tipo === "regalo") && f.barrio).forEach((f) => {
     m.set(f.barrio!, (m.get(f.barrio!) || 0) + 1);
   });
   return [...m.entries()].map(([nombre, total]) => ({ nombre, total }))
@@ -345,7 +343,7 @@ export const rankingBarrios = (facturas: Factura[]) => {
 
 export const rankingClientes = (facturas: Factura[]) => {
   const m = new Map<string, { nombre: string; total: number }>();
-  facturas.filter((f) => f.tipo === "domicilio" && f.clienteWhatsapp).forEach((f) => {
+  facturas.filter((f) => (f.tipo === "domicilio" || f.tipo === "regalo") && f.clienteWhatsapp).forEach((f) => {
     const k = f.clienteWhatsapp!;
     const prev = m.get(k);
     m.set(k, { nombre: f.clienteNombre || k, total: (prev?.total || 0) + 1 });
@@ -367,7 +365,7 @@ export const ingresosMesasPorMetodo = (facturas: Factura[]) =>
   cajaPorMetodo(facturas.filter((f) => f.tipo === "mesa"));
 
 export const ingresosPorDomiciliario = (facturas: Factura[], domiciliarioId: string) => {
-  const fs = facturas.filter((f) => f.tipo === "domicilio" && f.domiciliarioId === domiciliarioId);
+  const fs = facturas.filter((f) => (f.tipo === "domicilio" || f.tipo === "regalo") && f.domiciliarioId === domiciliarioId);
   let efectivo = 0, transferencia = 0;
   fs.forEach((f) => {
     if (esTransferencia(f.metodoPago)) transferencia += f.subtotal;

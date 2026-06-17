@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Search, Eye, Pencil, Trash2, Armchair, Bike, Gift, CalendarClock, CalendarDays } from "lucide-react";
+import { Search, Eye, Pencil, Trash2, Armchair, Bike, Mail, Gift, CalendarClock, CalendarDays } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { normalize, formatCOP, formatHora12, cx } from "@/lib/utils";
@@ -18,9 +18,11 @@ import { Factura, TipoFactura } from "@/types";
 const TABS: { tipo: TipoFactura; label: string; icon: React.ReactNode }[] = [
   { tipo: "mesa", label: "Mesas", icon: <Armchair size={14} /> },
   { tipo: "domicilio", label: "Domicilios", icon: <Bike size={14} /> },
-  { tipo: "favor", label: "Favores", icon: <Gift size={14} /> },
+  { tipo: "regalo", label: "Regalos", icon: <Gift size={14} /> },
+  { tipo: "favor", label: "Favores", icon: <Mail size={14} /> },
   { tipo: "reserva-domicilio", label: "Res. Domicilio", icon: <CalendarClock size={14} /> },
   { tipo: "reserva-mesa", label: "Res. Mesa", icon: <CalendarClock size={14} /> },
+  { tipo: "reserva-regalo", label: "Res. Regalo", icon: <CalendarClock size={14} /> },
 ];
 
 function nombreFactura(f: Factura): string {

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ProductPicker } from "./ProductPicker";
 import { cx, formatCOP } from "@/lib/utils";
-import { folio, metodosPagoOrden, mediosTransferencia, subtotalDe, totalDe } from "@/lib/factura";
+import { esDomicilioLike, folio, metodosPagoOrden, mediosTransferencia, subtotalDe, totalDe } from "@/lib/factura";
 import { Factura, ItemFactura, MetodoPago, MedioTransferencia } from "@/types";
 
 // Edición inteligente:
@@ -44,7 +44,7 @@ export function EditarFacturaInteligente({
 
   const seAgregaronProductos = items.some((it) => it.nuevo);
   const subtotal = subtotalDe(items);
-  const esDomicilioTipo = factura.tipo === "domicilio" || factura.tipo === "reserva-domicilio";
+  const esDomicilioTipo = esDomicilioLike(factura.tipo);
   const total = totalDe(items, esDomicilioTipo ? valorDom : 0);
   // Mixto: transferencia = total - efectivo (igual que en Facturar.tsx)
   const valorTransferencia = metodo === "mixto" ? Math.max(0, total - valorEfectivo) : 0;

@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import {
-  Trash2, MessageSquarePlus, Armchair, Bike,
+  Trash2, MessageSquarePlus, Armchair, Bike, Mail,
   Gift, CalendarClock, Plus, CircleAlert,
 } from "lucide-react";
 import { useData } from "@/store/dataStore";
@@ -16,6 +16,7 @@ import { formatCOP, cx, uid, now } from "@/lib/utils";
 import {
   subtotalDe, totalDe, metodosPagoOrden, metodosPagoFavor, mediosTransferencia,
   combosMixtoFavor, comboFavorIncluye, calcFavorMixto, tiposAjuste, calcularAjuste,
+  esDomicilioLike, esRegaloLike, esReservaLike,
 } from "@/lib/factura";
 import { Factura, ItemFactura, MetodoPago, MedioTransferencia, TipoAjuste, TipoFactura, TipoMixtoFavor } from "@/types";
 
@@ -32,6 +33,8 @@ export function Facturar() {
   // ── estado compartido mesa / domicilio / reserva-* ───────────────────
   const [mesaId, setMesaId] = useState("");
   const [cliente, setCliente] = useState({ nombre: "", whatsapp: "", direccion: "", barrio: "" });
+  // Regalo / Reserva Regalo: "Quién envía" (quien recibe ya se cubre con `cliente` arriba)
+  const [quienEnvia, setQuienEnvia] = useState({ nombre: "", contacto: "" });
   const [items, setItems] = useState<ItemFactura[]>([]);
   const [valorDomicilio, setValorDomicilio] = useState(0);
   const [metodo, setMetodo] = useState<MetodoPago>("efectivo");
@@ -88,7 +91,9 @@ export function Facturar() {
 
   // ── cálculos ──────────────────────────────────────────────────────────
   const subtotal = useMemo(() => subtotalDe(items), [items]);
-  const esDomicilioTipo = tipo === "domicilio" || tipo === "reserva-domicilio";
+  // "regalo"/"reserva-regalo" reutilizan el mismo formulario y cálculo de domicilio
+  const esDomicilioTipo = !!tipo && esDomicilioLike(tipo);
+  const esRegaloTipo = !!tipo && esRegaloLike(tipo);
   // Subtotal + domicilio (si aplica), antes de descuento/costo adicional.
   const subtotalConDomicilio = useMemo(
     () => totalDe(items, esDomicilioTipo ? valorDomicilio : 0),
@@ -149,6 +154,7 @@ export function Facturar() {
     setTipoCostoAdicional("fijo");
     setValorCostoAdicionalInput(0);
     setCliente({ nombre: "", whatsapp: "", direccion: "", barrio: "" });
+    setQuienEnvia({ nombre: "", contacto: "" });
     setFechaReserva("");
     setHoraReserva("");
     setReservaFechaOk(false);
@@ -173,7 +179,8 @@ export function Facturar() {
     tipo !== "favor" &&
     items.length > 0 &&
     (esMesaTipo ? !!mesaId : !!cliente.nombre && !!cliente.direccion) &&
-    ((tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? !!fechaReserva : true) &&
+    (esRegaloTipo ? !!quienEnvia.nombre.trim() : true) &&
+    (tipo && esReservaLike(tipo) ? !!fechaReserva : true) &&
     mixtoValido;
 
   const itemsFavorValidos = itemsFavor.filter((it) => it.nombre.trim() && it.precio > 0);
@@ -239,6 +246,8 @@ export function Facturar() {
         direccion: esDomicilioTipo ? cliente.direccion : undefined,
         barrio: esDomicilioTipo ? cliente.barrio : undefined,
         valorDomicilio: esDomicilioTipo ? valorDomicilio : undefined,
+        nombreQuienEnvia: esRegaloTipo ? quienEnvia.nombre.trim() : undefined,
+        contactoQuienEnvia: esRegaloTipo ? quienEnvia.contacto.trim() || undefined : undefined,
         items,
         metodoPago: metodo,
         // Pago mixto
@@ -254,8 +263,8 @@ export function Facturar() {
         porcentajeCostoAdicional: costoAdicionalCalculado > 0 && tipoCostoAdicional === "porcentaje" ? valorCostoAdicionalInput : undefined,
         subtotal,
         total,
-        fechaProgramada: (tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? fechaReserva : undefined,
-        horaReserva: (tipo === "reserva-mesa" || tipo === "reserva-domicilio") ? (horaReserva || undefined) : undefined,
+        fechaProgramada: esReservaLike(tipo) ? fechaReserva : undefined,
+        horaReserva: esReservaLike(tipo) ? (horaReserva || undefined) : undefined,
       });
       setFacturaCreada(nueva);
     } catch (e) {
@@ -343,10 +352,18 @@ export function Facturar() {
             <p className="text-sm text-cocoa/60">Entrega a domicilio</p>
           </button>
           <button
+            onClick={() => setTipo("regalo")}
+            className="group rounded-xl2 border border-sand bg-gradient-to-br from-amber-400/10 to-amber-300/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
+          >
+            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-amber-600 shadow-card"><Gift size={28} /></div>
+            <p className="font-display text-xl font-semibold text-cocoa">Regalo</p>
+            <p className="text-sm text-cocoa/60">Entrega de regalo</p>
+          </button>
+          <button
             onClick={() => setTipo("favor")}
             className="group rounded-xl2 border border-sand bg-gradient-to-br from-pistachio/20 to-pistachio/40 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
           >
-            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-cocoa shadow-card"><Gift size={28} /></div>
+            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-cocoa shadow-card"><Mail size={28} /></div>
             <p className="font-display text-xl font-semibold text-cocoa">Favor</p>
             <p className="text-sm text-cocoa/60">Pedido especial</p>
           </button>
@@ -369,6 +386,16 @@ export function Facturar() {
             </div>
             <p className="font-display text-xl font-semibold text-cocoa">Reserva Mesa</p>
             <p className="text-sm text-cocoa/60">Con fecha y hora</p>
+          </button>
+          <button
+            onClick={() => setTipo("reserva-regalo")}
+            className="group rounded-xl2 border border-sand bg-gradient-to-br from-violet-400/10 to-violet-300/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
+          >
+            <div className="mb-4 flex h-14 w-14 items-center justify-center gap-0.5 rounded-2xl bg-white text-violet-600 shadow-card">
+              <CalendarClock size={22} /><Gift size={18} />
+            </div>
+            <p className="font-display text-xl font-semibold text-cocoa">Reserva Regalo</p>
+            <p className="text-sm text-cocoa/60">Entrega de regalo programada</p>
           </button>
         </div>
       </div>
@@ -594,7 +621,7 @@ export function Facturar() {
   // ══════════════════════════════════════════════════════════════════════
   // RESERVA — picker de fecha y hora (primer paso)
   // ══════════════════════════════════════════════════════════════════════
-  if ((tipo === "reserva-domicilio" || tipo === "reserva-mesa") && !reservaFechaOk) {
+  if ((tipo === "reserva-domicilio" || tipo === "reserva-mesa" || tipo === "reserva-regalo") && !reservaFechaOk) {
     return (
       <div className="mx-auto max-w-sm">
         {error && <ErrorBanner mensaje={error} />}
@@ -602,9 +629,9 @@ export function Facturar() {
           <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">← Volver</button>
           <span className={cx(
             "rounded-full px-3 py-1 text-sm font-bold",
-            tipo === "reserva-domicilio" ? "bg-raspberry-light text-raspberry-dark" : "bg-mint/20 text-cocoa"
+            tipo === "reserva-mesa" ? "bg-mint/20 text-cocoa" : tipo === "reserva-regalo" ? "bg-violet-200 text-violet-800" : "bg-raspberry-light text-raspberry-dark"
           )}>
-            {tipo === "reserva-domicilio" ? "Reserva Domicilio" : "Reserva Mesa"}
+            {tipo === "reserva-mesa" ? "Reserva Mesa" : tipo === "reserva-regalo" ? "Reserva Regalo" : "Reserva Domicilio"}
           </span>
         </div>
         <Card className="space-y-4 p-5">
@@ -633,14 +660,19 @@ export function Facturar() {
         <div className="flex items-center gap-2">
           <span className={cx(
             "rounded-full px-3 py-1 text-sm font-bold",
-            esMesaTipo ? "bg-mint/20 text-cocoa" : "bg-raspberry-light text-raspberry-dark"
+            esMesaTipo ? "bg-mint/20 text-cocoa" : esRegaloTipo ? "bg-amber-200 text-amber-900" : "bg-raspberry-light text-raspberry-dark"
           )}>
-            {tipo === "mesa" ? "Mesa" : tipo === "domicilio" ? "Domicilio" : tipo === "reserva-mesa" ? "Reserva Mesa" : "Reserva Domicilio"}
+            {tipo === "mesa" ? "Mesa"
+              : tipo === "domicilio" ? "Domicilio"
+              : tipo === "regalo" ? "Regalo"
+              : tipo === "reserva-mesa" ? "Reserva Mesa"
+              : tipo === "reserva-regalo" ? "Reserva Regalo"
+              : "Reserva Domicilio"}
           </span>
           <button onClick={reset} className="text-sm font-semibold text-cocoa/60 hover:text-raspberry">Cambiar</button>
         </div>
 
-        {(tipo === "reserva-mesa" || tipo === "reserva-domicilio") && fechaReserva && (
+        {tipo && esReservaLike(tipo) && fechaReserva && (
           <Card className="flex items-center gap-3 p-4">
             <CalendarClock size={18} className="text-raspberry" />
             <div>
@@ -675,13 +707,30 @@ export function Facturar() {
             <p className="mt-2 text-xs text-cocoa/50">Se permite repetir mesas en distintas facturas.</p>
           </Card>
         ) : (
-          <Card className="space-y-3 p-5">
-            <p className="font-bold text-cocoa">Datos del cliente</p>
-            <Input label="Nombre" value={cliente.nombre} onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })} />
-            <Input label="WhatsApp" value={cliente.whatsapp} onChange={(e) => setCliente({ ...cliente, whatsapp: e.target.value })} />
-            <Input label="Dirección" value={cliente.direccion} onChange={(e) => setCliente({ ...cliente, direccion: e.target.value })} />
-            <Input label="Barrio" value={cliente.barrio} onChange={(e) => setCliente({ ...cliente, barrio: e.target.value })} />
-          </Card>
+          <>
+            {esRegaloTipo && (
+              <Card className="space-y-3 p-5">
+                <p className="font-bold text-cocoa">Quién envía</p>
+                <Input
+                  label="Nombre de quien envía"
+                  value={quienEnvia.nombre}
+                  onChange={(e) => setQuienEnvia({ ...quienEnvia, nombre: e.target.value })}
+                />
+                <Input
+                  label="Número de contacto de quien envía"
+                  value={quienEnvia.contacto}
+                  onChange={(e) => setQuienEnvia({ ...quienEnvia, contacto: e.target.value })}
+                />
+              </Card>
+            )}
+            <Card className="space-y-3 p-5">
+              <p className="font-bold text-cocoa">{esRegaloTipo ? "Datos de quien recibe" : "Datos del cliente"}</p>
+              <Input label="Nombre" value={cliente.nombre} onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })} />
+              <Input label="WhatsApp" value={cliente.whatsapp} onChange={(e) => setCliente({ ...cliente, whatsapp: e.target.value })} />
+              <Input label="Dirección" value={cliente.direccion} onChange={(e) => setCliente({ ...cliente, direccion: e.target.value })} />
+              <Input label="Barrio" value={cliente.barrio} onChange={(e) => setCliente({ ...cliente, barrio: e.target.value })} />
+            </Card>
+          </>
         )}
 
         <Card className="p-5">
