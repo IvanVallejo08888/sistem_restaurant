@@ -266,103 +266,61 @@ export const cajaPorCategoria = (
 
 // ── Cajero ────────────────────────────────────────────────────────────────────
 
-// Total descontado al domiciliario por favores asignados (tipo "favor").
-// Ya viene precalculado en descuentoDomiciliario al registrar el favor:
-// - metodoPago "domiciliario" → descuenta producto + domicilio (el cliente no pagó nada).
-// - metodoPago "mixto" → según la combinación elegida (ver calcFavorMixto en lib/factura).
-// - otro método con domicilio con costo → descuenta solo el costo del envío.
-export const totalFavoresDescontados = (facturasDomiciliario: Factura[]) =>
-  facturasDomiciliario
-    .filter((f) => f.tipo === "favor")
-    .reduce((s, f) => s + (f.descuentoDomiciliario ?? 0), 0);
-
-// Sobrante de efectivo de favores con pago Mixto (combinaciones con "efectivo")
-// que el domiciliario debe entregar a la empresa. Ya viene precalculado en
-// efectivoSobranteFavor al registrar el favor.
-export const totalFavoresSobranteEfectivo = (facturasDomiciliario: Factura[]) =>
-  facturasDomiciliario
-    .filter((f) => f.tipo === "favor")
-    .reduce((s, f) => s + (f.efectivoSobranteFavor ?? 0), 0);
-
-// Efectivo a entregar por un domiciliario. Puede ser negativo: si los
-// descuentos (envíos + favores) superan el efectivo cobrado, es la empresa
-// quien le debe ese saldo al domiciliario.
-// Efectivo: suma solo productos (subtotal, sin domicilio).
-// Transferencia: resta el valor del domicilio (la caja no recibió ese dinero).
-// Mixto: del efectivo recibido primero se descuenta el costo del domicilio
-// (eso se queda el domiciliario como pago); el sobrante, si lo hay, es de la
-// empresa y debe entregarlo. Si el efectivo no alcanza a cubrir el domicilio,
-// la diferencia también se le reconoce al domiciliario (la empresa le debe
-// ese faltante, porque cobró menos efectivo del que costaba el envío).
-// Los favores (tipo "favor") no entran a este recorrido: se descuentan aparte
-// vía descuentoDomiciliario (ver totalFavoresDescontados).
-export const efectivoAEntregar = (facturasDomiciliario: Factura[]) => {
-  let total = 0;
-  facturasDomiciliario.forEach((f) => {
-    if (f.tipo === "favor") return;
-    if (f.metodoPago === "efectivo") {
-      total += f.subtotal;
-    } else if (f.metodoPago === "mixto") {
-      const efectivoRecibido = f.valorEfectivo ?? 0;
-      const costoDomicilio = f.valorDomicilio ?? 0;
-      total += efectivoRecibido - costoDomicilio;
-    } else {
-      total -= f.valorDomicilio || 0;
-    }
-  });
-  total += totalFavoresSobranteEfectivo(facturasDomiciliario);
-  return total - totalFavoresDescontados(facturasDomiciliario);
+// Aporte de una factura individual al efectivo que el domiciliario debe
+// entregar, calculado según cómo quedó cubierto el costo de su domicilio:
+// - Favor: no hay venta real de producto, así que solo importa el envío. Si
+//   tuvo costo de domicilio se resta ese valor; si no tuvo, el aporte es 0.
+// - Efectivo: el cliente pagó todo en efectivo (producto + domicilio), el
+//   domicilio queda cubierto con ese mismo efectivo y su aporte es 0.
+// - Mixto: si la parte en efectivo recibida alcanza para cubrir el
+//   domicilio, su aporte es 0 (igual que en efectivo); si no alcanza, se
+//   resta el valor completo del domicilio (igual que en transferencia).
+// - Cualquier otro medio (transferencia, datáfono, etc.): el dinero del
+//   domicilio no entró en efectivo, así que se resta su valor completo.
+const aporteDomicilio = (f: Factura): number => {
+  const costoDomicilio = f.valorDomicilio ?? 0;
+  if (f.tipo === "favor") return costoDomicilio > 0 ? -costoDomicilio : 0;
+  if (f.metodoPago === "efectivo") return 0;
+  if (f.metodoPago === "mixto") {
+    const efectivoRecibido = f.valorEfectivo ?? 0;
+    return efectivoRecibido >= costoDomicilio ? 0 : -costoDomicilio;
+  }
+  return -costoDomicilio;
 };
 
-// Desglose detallado del cuadre de un domiciliario para un set de facturas
-// (normalmente las del día). Separa el descuento por costo de envío entre
-// pedidos de pago normal y pedidos mixtos, aísla el efectivo sobrante de
-// los pedidos mixtos (lo que el domiciliario debe entregar aparte), el
-// faltante de los mixtos donde el efectivo no cubrió el domicilio (lo que
-// la empresa le debe aparte) y suma los favores descontados. El saldo final
-// (efectivoAEntregar) puede ser negativo: en ese caso es la empresa quien le
-// debe dinero al domiciliario.
+// Efectivo recibido por productos (no por el domicilio) que el domiciliario
+// trae en mano. Los favores no aportan aquí porque no hay venta real.
+const efectivoEnProductos = (f: Factura): number => {
+  if (f.tipo === "favor") return 0;
+  if (f.metodoPago === "efectivo") return f.subtotal;
+  if (f.metodoPago === "mixto") {
+    const efectivoRecibido = f.valorEfectivo ?? 0;
+    const costoDomicilio = f.valorDomicilio ?? 0;
+    return Math.max(0, efectivoRecibido - costoDomicilio);
+  }
+  return 0;
+};
+
+// Efectivo a entregar por un domiciliario: suma el efectivo recibido por
+// productos más el aporte de cada domicilio. Puede ser negativo: si los
+// envíos cubiertos por transferencia o favores superan el efectivo cobrado,
+// es la empresa quien le debe ese saldo al domiciliario. No se debe forzar
+// nunca a cero ni a positivo.
+export const efectivoAEntregar = (facturasDomiciliario: Factura[]) =>
+  facturasDomiciliario.reduce(
+    (total, f) => total + efectivoEnProductos(f) + aporteDomicilio(f),
+    0
+  );
+
 export type CuadreDomiciliario = {
   totalDomicilios: number;
-  descuentoEnvioNormal: number;
-  descuentoEnvioMixto: number;
-  efectivoSobranteMixto: number;
-  faltanteEnvioMixto: number;
-  totalFavoresDescontados: number;
   efectivoAEntregar: number;
 };
 
-export const cuadreDomiciliario = (facturasDomiciliario: Factura[]): CuadreDomiciliario => {
-  let descuentoEnvioNormal = 0;
-  let descuentoEnvioMixto = 0;
-  let efectivoSobranteMixto = 0;
-  let faltanteEnvioMixto = 0;
-
-  facturasDomiciliario.forEach((f) => {
-    if (f.tipo === "favor") return;
-    const costoDomicilio = f.valorDomicilio ?? 0;
-    if (f.metodoPago === "mixto") {
-      const efectivoRecibido = f.valorEfectivo ?? 0;
-      descuentoEnvioMixto += Math.min(efectivoRecibido, costoDomicilio);
-      efectivoSobranteMixto += Math.max(0, efectivoRecibido - costoDomicilio);
-      faltanteEnvioMixto += Math.max(0, costoDomicilio - efectivoRecibido);
-    } else if (f.metodoPago !== "domiciliario") {
-      descuentoEnvioNormal += costoDomicilio;
-    }
-  });
-
-  efectivoSobranteMixto += totalFavoresSobranteEfectivo(facturasDomiciliario);
-
-  return {
-    totalDomicilios: facturasDomiciliario.filter((f) => f.tipo !== "favor").length,
-    descuentoEnvioNormal,
-    descuentoEnvioMixto,
-    efectivoSobranteMixto,
-    faltanteEnvioMixto,
-    totalFavoresDescontados: totalFavoresDescontados(facturasDomiciliario),
-    efectivoAEntregar: efectivoAEntregar(facturasDomiciliario),
-  };
-};
+export const cuadreDomiciliario = (facturasDomiciliario: Factura[]): CuadreDomiciliario => ({
+  totalDomicilios: facturasDomiciliario.filter((f) => f.tipo !== "favor").length,
+  efectivoAEntregar: efectivoAEntregar(facturasDomiciliario),
+});
 
 export const utilidadDia = (facturas: Factura[], gastos = 0) =>
   cajaTotal(facturas) - gastos;

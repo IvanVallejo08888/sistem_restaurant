@@ -104,6 +104,18 @@ const LABELS_METODO: Record<MetodoPago, string> = {
 
 export const labelMetodo = (m: MetodoPago): string => LABELS_METODO[m] ?? m;
 
+// Etiqueta de pago de una factura completa: a diferencia de labelMetodo (que
+// solo mira metodoPago), esta también revisa la combinación de pago Mixto de
+// un favor para reflejar cuándo el domicilio se cobró junto con efectivo o
+// transferencia, en vez de ocultarlo bajo "Mixto".
+export const labelMetodoFactura = (f: Factura): string => {
+  if (f.metodoPago === "mixto" && f.tipoMixtoFavor) {
+    if (f.tipoMixtoFavor === "efectivo-domiciliario") return "Efectivo domicilio";
+    if (f.tipoMixtoFavor === "transferencia-domiciliario") return "Transferencia domicilio";
+  }
+  return labelMetodo(f.metodoPago);
+};
+
 export const esTransferencia = (m: MetodoPago) => m !== "efectivo";
 
 const PREFIJOS: Record<TipoFactura, string> = {

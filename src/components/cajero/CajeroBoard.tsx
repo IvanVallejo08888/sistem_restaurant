@@ -7,7 +7,7 @@ import {
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { formatCOP, cx } from "@/lib/utils";
-import { labelMetodo, metodosPago } from "@/lib/factura";
+import { labelMetodo, labelMetodoFactura, metodosPago } from "@/lib/factura";
 import {
   facturasDelDia, gastosDelDia,
   cajaTotalProductos, resumenMetodosVacio,
@@ -378,15 +378,6 @@ export function CajeroBoard() {
                   <div className="mt-4">
                     <SaldoDomiciliarioCard saldo={cuadre.efectivoAEntregar} />
                   </div>
-                  {cuadre.efectivoSobranteMixto > 0 && (
-                    <div
-                      className="mt-2 flex items-center justify-between rounded-xl bg-amber-100 px-4 py-2.5"
-                      title="Efectivo recibido en pedidos mixtos que supera el costo del domicilio. No le pertenece al domiciliario, debe entregarlo."
-                    >
-                      <span className="text-xs font-bold text-amber-800">Sobrante efectivo (mixto)</span>
-                      <span className="font-display text-sm font-black text-amber-900">{formatCOP(cuadre.efectivoSobranteMixto)}</span>
-                    </div>
-                  )}
                 </Card>
               );
             })}
@@ -516,31 +507,26 @@ function DetalleCajero({ facturas, nombre, onClose }: {
   onClose: () => void;
 }) {
   const cuadre = cuadreDomiciliario(facturas);
-  const gananciasDia = facturas.reduce((acc, f) => acc + Math.round(f.valorDomicilio ?? 0), 0);
   return (
     <Modal open onClose={onClose} title={`Cuadre · ${nombre}`}>
       <div className="space-y-3">
         <div className="overflow-x-auto rounded-xl border border-sand" style={{ WebkitOverflowScrolling: "touch" }}>
-          <table className="w-full min-w-[560px] text-sm">
+          <table className="w-full min-w-[480px] text-sm">
             <thead className="bg-sand/60 text-left text-cocoa/70">
               <tr>
                 <th className="px-3 py-2 font-bold">Factura</th>
                 <th className="px-3 py-2 font-bold">Pago</th>
                 <th className="px-3 py-2 font-bold text-right">Productos</th>
                 <th className="px-3 py-2 font-bold text-right">Domicilio</th>
-                <th className="px-3 py-2 font-bold text-right">Sobrante/Falta</th>
               </tr>
             </thead>
             <tbody>
               {facturas.map((f) => {
                 const costoDomicilio = f.valorDomicilio ?? 0;
-                const excedenteMixto = f.metodoPago === "mixto"
-                  ? (f.valorEfectivo ?? 0) - costoDomicilio
-                  : 0;
                 return (
                   <tr key={f.id} className="border-t border-sand">
                     <td className="px-3 py-2 text-cocoa">
-                      {f.clienteNombre ?? f.nombreFavor ?? "—"}
+                      {f.tipo === "favor" ? "FAVOR" : f.clienteNombre ?? "—"}
                       <br />
                       <span className="text-xs text-cocoa/50">{f.barrio ?? "—"}</span>
                     </td>
@@ -549,7 +535,7 @@ function DetalleCajero({ facturas, nombre, onClose }: {
                         "rounded-full px-2 py-0.5 text-xs font-bold",
                         f.metodoPago === "efectivo" ? "bg-pistachio/30 text-cocoa" : "bg-mint/20 text-cocoa"
                       )}>
-                        {labelMetodo(f.metodoPago)}
+                        {labelMetodoFactura(f)}
                       </span>
                       {f.metodoPago === "mixto" && (
                         <p className="mt-0.5 text-[11px] text-cocoa/50">
@@ -559,14 +545,6 @@ function DetalleCajero({ facturas, nombre, onClose }: {
                     </td>
                     <td className="px-3 py-2 text-right text-cocoa">{formatCOP(f.subtotal)}</td>
                     <td className="px-3 py-2 text-right text-cocoa/70">{formatCOP(costoDomicilio)}</td>
-                    <td className={cx(
-                      "px-3 py-2 text-right font-semibold",
-                      excedenteMixto > 0 ? "text-amber-700" : excedenteMixto < 0 ? "text-red-700" : "text-cocoa/50"
-                    )}>
-                      {excedenteMixto > 0 && formatCOP(excedenteMixto)}
-                      {excedenteMixto < 0 && `−${formatCOP(Math.abs(excedenteMixto))}`}
-                      {excedenteMixto === 0 && "—"}
-                    </td>
                   </tr>
                 );
               })}
@@ -575,54 +553,8 @@ function DetalleCajero({ facturas, nombre, onClose }: {
         </div>
         <p className="text-xs text-cocoa/50">
           Efectivo: suma solo productos. Transferencia: resta el domicilio. Mixto: el efectivo
-          recibido cubre primero el costo del domicilio; lo que sobra es de la empresa y lo que
-          falta se le reconoce al domiciliario.
+          recibido cubre primero el costo del domicilio.
         </p>
-
-        <div className="space-y-2 rounded-xl border border-sand bg-sand/30 p-4 text-sm">
-          <div className="flex justify-between text-cocoa/70">
-            <span>Total domicilios realizados</span>
-            <span className="font-semibold text-cocoa">{cuadre.totalDomicilios}</span>
-          </div>
-          <div className="flex justify-between text-cocoa/70">
-            <span>Descuento envío (pago normal)</span>
-            <span className="font-semibold text-cocoa">{formatCOP(cuadre.descuentoEnvioNormal)}</span>
-          </div>
-          <div className="flex justify-between text-cocoa/70">
-            <span>Descuento envío (pago mixto)</span>
-            <span className="font-semibold text-cocoa">{formatCOP(cuadre.descuentoEnvioMixto)}</span>
-          </div>
-          {cuadre.totalFavoresDescontados > 0 && (
-            <div className="flex justify-between text-cocoa/70">
-              <span>Total favores descontados</span>
-              <span className="font-semibold text-cocoa">{formatCOP(cuadre.totalFavoresDescontados)}</span>
-            </div>
-          )}
-          <div className="flex justify-between border-t border-sand pt-2 text-cocoa/70">
-            <span>Ganancias del día (domicilios)</span>
-            <span className="font-semibold text-cocoa">{formatCOP(gananciasDia)}</span>
-          </div>
-        </div>
-
-        {cuadre.efectivoSobranteMixto > 0 && (
-          <div
-            className="flex items-center justify-between rounded-xl bg-amber-100 px-5 py-3"
-            title="Efectivo recibido en pedidos mixtos que supera el costo del domicilio. No le pertenece al domiciliario, debe entregarlo a la empresa."
-          >
-            <span className="font-bold text-amber-900">Sobrante efectivo (mixto) a entregar</span>
-            <span className="font-display text-lg font-black text-amber-900">{formatCOP(cuadre.efectivoSobranteMixto)}</span>
-          </div>
-        )}
-
-        {cuadre.faltanteEnvioMixto > 0 && (
-          <div
-            className="flex items-center justify-between rounded-xl border border-red-300 bg-red-50 px-5 py-3"
-            title="Efectivo recibido en pedidos mixtos que no alcanzó a cubrir el costo del domicilio. La empresa le debe esa diferencia al domiciliario."
-          >
-            <span className="font-bold text-red-700">Faltante envío (mixto) a reconocer</span>
-            <span className="font-display text-lg font-black text-red-700">−{formatCOP(cuadre.faltanteEnvioMixto)}</span>
-          </div>
-        )}
 
         <SaldoDomiciliarioCard saldo={cuadre.efectivoAEntregar} size="lg" />
       </div>
