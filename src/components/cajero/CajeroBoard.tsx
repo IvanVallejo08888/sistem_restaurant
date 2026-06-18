@@ -501,11 +501,12 @@ function DetalleCajero({ facturas, nombre, onClose }: {
   onClose: () => void;
 }) {
   const cuadre = cuadreDomiciliario(facturas);
+  const gananciasDia = facturas.reduce((acc, f) => acc + Math.round(f.valorDomicilio ?? 0), 0);
   return (
     <Modal open onClose={onClose} title={`Cuadre · ${nombre}`}>
       <div className="space-y-3">
-        <div className="overflow-hidden rounded-xl border border-sand">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-sand" style={{ WebkitOverflowScrolling: "touch" }}>
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-sand/60 text-left text-cocoa/70">
               <tr>
                 <th className="px-3 py-2 font-bold">Factura</th>
@@ -523,7 +524,11 @@ function DetalleCajero({ facturas, nombre, onClose }: {
                   : 0;
                 return (
                   <tr key={f.id} className="border-t border-sand">
-                    <td className="px-3 py-2 text-cocoa">{f.clienteNombre ?? f.nombreFavor ?? "—"}</td>
+                    <td className="px-3 py-2 text-cocoa">
+                      {f.clienteNombre ?? f.nombreFavor ?? "—"}
+                      <br />
+                      <span className="text-xs text-cocoa/50">{f.barrio ?? "—"}</span>
+                    </td>
                     <td className="px-3 py-2">
                       <span className={cx(
                         "rounded-full px-2 py-0.5 text-xs font-bold",
@@ -578,6 +583,10 @@ function DetalleCajero({ facturas, nombre, onClose }: {
               <span className="font-semibold text-cocoa">{formatCOP(cuadre.totalFavoresDescontados)}</span>
             </div>
           )}
+          <div className="flex justify-between border-t border-sand pt-2 text-cocoa/70">
+            <span>Ganancias del día (domicilios)</span>
+            <span className="font-semibold text-cocoa">{formatCOP(gananciasDia)}</span>
+          </div>
         </div>
 
         {cuadre.efectivoSobranteMixto > 0 && (
