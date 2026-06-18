@@ -268,8 +268,12 @@ export const cajaPorCategoria = (
 
 // Aporte de una factura individual al efectivo que el domiciliario debe
 // entregar, calculado según cómo quedó cubierto el costo de su domicilio:
-// - Favor: no hay venta real de producto, así que solo importa el envío. Si
-//   tuvo costo de domicilio se resta ese valor; si no tuvo, el aporte es 0.
+// - Favor con pago Domiciliario: el domiciliario puso de su bolsillo el
+//   producto, el domicilio, o ambos, así que se le reconoce completo
+//   (producto + domicilio).
+// - Favor con cualquier otro método (normalmente efectivo, asumido por la
+//   empresa): no hay venta real de producto, así que solo importa el envío.
+//   Si tuvo costo de domicilio se resta ese valor; si no tuvo, el aporte es 0.
 // - Efectivo: el cliente pagó todo en efectivo (producto + domicilio), el
 //   domicilio queda cubierto con ese mismo efectivo y su aporte es 0.
 // - Mixto: el efectivo recibido se usa primero para cubrir el domicilio. Si
@@ -277,11 +281,14 @@ export const cajaPorCategoria = (
 //   alcanza, solo se resta la diferencia que faltó por cubrir (la que salió
 //   de la parte pagada por transferencia), nunca el valor completo del
 //   domicilio.
-// - Cualquier otro medio (transferencia, datáfono, etc.): el dinero del
-//   domicilio no entró en efectivo, así que se resta su valor completo.
+// - Cualquier otro medio (transferencia, datáfono, Nequi, etc.): el dinero
+//   del domicilio no entró en efectivo, así que se resta su valor completo.
 const aporteDomicilio = (f: Factura): number => {
   const costoDomicilio = f.valorDomicilio ?? 0;
-  if (f.tipo === "favor") return costoDomicilio > 0 ? -costoDomicilio : 0;
+  if (f.tipo === "favor") {
+    if (f.metodoPago === "domiciliario") return -(f.subtotal + costoDomicilio);
+    return costoDomicilio > 0 ? -costoDomicilio : 0;
+  }
   if (f.metodoPago === "efectivo") return 0;
   if (f.metodoPago === "mixto") {
     const efectivoRecibido = f.valorEfectivo ?? 0;
