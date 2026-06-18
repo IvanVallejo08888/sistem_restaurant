@@ -63,26 +63,25 @@ export const comboFavorIncluye = (
   parte: "efectivo" | "transferencia" | "domiciliario"
 ) => combo.split("-").includes(parte);
 
-// Descuento al domiciliario y sobrante de efectivo a entregar, según la
-// combinación de pago Mixto elegida en un favor.
-// - transferencia-domiciliario: no hay efectivo de cliente; se descuenta todo
-//   lo que el domiciliario adelantó más el costo del domicilio.
-// - efectivo-domiciliario: igual que transferencia-domiciliario, se descuenta
-//   lo adelantado más el costo del domicilio (el efectivo que el cliente le
-//   da en mano al domiciliario es su pago directo, no entra a este cuadre).
-// - efectivo-transferencia: igual a la lógica de mixto ya existente en
-//   domicilios normales (el efectivo cubre el domicilio, el sobrante se entrega).
+// Descuento al domiciliario según la combinación de pago Mixto elegida en un
+// favor. En un Favor el negocio no vende nada (ver comentario en el tipo B
+// más abajo): el producto se cubre aparte como gasto empresarial, así que
+// este cuadre solo le importa quién puso el dinero del domicilio.
+// - transferencia-domiciliario / efectivo-domiciliario: el domiciliario
+//   adelantó parte (o todo) del producto de su bolsillo; se descuenta lo
+//   adelantado más el costo del domicilio. El efectivo/transferencia que
+//   cubre el resto del producto es ajeno a este cuadre.
+// - efectivo-transferencia: ninguno de los dos pagos fue del domiciliario,
+//   así que solo se descuenta el domicilio (igual que pago no-mixto).
 export const calcFavorMixto = (
   combo: TipoMixtoFavor,
   costoDomicilio: number,
-  valorEfectivoMixto: number,
   valorAdelantado: number
 ): { descuento: number; sobranteEfectivo: number } => {
   if (combo === "transferencia-domiciliario" || combo === "efectivo-domiciliario") {
     return { descuento: valorAdelantado + costoDomicilio, sobranteEfectivo: 0 };
   }
-  const sobranteEfectivo = Math.max(0, valorEfectivoMixto - costoDomicilio);
-  return { descuento: 0, sobranteEfectivo };
+  return { descuento: costoDomicilio, sobranteEfectivo: 0 };
 };
 
 // Sub-medios para pago Mixto (mismo set que transferencias estándar)

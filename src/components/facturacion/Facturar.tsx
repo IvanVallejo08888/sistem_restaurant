@@ -207,8 +207,8 @@ export function Facturar() {
   // Favor con pago Mixto: descuento al domiciliario + sobrante de efectivo según combinación
   const favorMixtoCalc = useMemo(() => {
     if (metodoFavor !== "mixto" || !tipoMixtoFavor) return { descuento: 0, sobranteEfectivo: 0 };
-    return calcFavorMixto(tipoMixtoFavor, favorValorDom || 0, favorValorEfectivoMixto, favorValorAdelantadoCalculado);
-  }, [metodoFavor, tipoMixtoFavor, favorValorDom, favorValorEfectivoMixto, favorValorAdelantadoCalculado]);
+    return calcFavorMixto(tipoMixtoFavor, favorValorDom || 0, favorValorAdelantadoCalculado);
+  }, [metodoFavor, tipoMixtoFavor, favorValorDom, favorValorAdelantadoCalculado]);
 
   // Mixto válido: combinación elegida y todos sus campos de valor presentes
   const favorMixtoValido =

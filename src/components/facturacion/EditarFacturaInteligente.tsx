@@ -84,7 +84,7 @@ export function EditarFacturaInteligente({
       : valorAdelantado;
   const favorMixtoCalc =
     esFavor && metodo === "mixto" && tipoMixtoFavor
-      ? calcFavorMixto(tipoMixtoFavor, valorDom || 0, valorEfectivo, valorAdelantadoCalculado)
+      ? calcFavorMixto(tipoMixtoFavor, valorDom || 0, valorAdelantadoCalculado)
       : { descuento: 0, sobranteEfectivo: 0 };
   const favorMixtoValido =
     !esFavor || metodo !== "mixto" || (
