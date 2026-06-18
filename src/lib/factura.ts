@@ -67,8 +67,9 @@ export const comboFavorIncluye = (
 // combinación de pago Mixto elegida en un favor.
 // - transferencia-domiciliario: no hay efectivo de cliente; se descuenta todo
 //   lo que el domiciliario adelantó más el costo del domicilio.
-// - efectivo-domiciliario: el efectivo recibido cubre primero el domicilio
-//   (el sobrante se entrega); además se descuenta lo adelantado.
+// - efectivo-domiciliario: igual que transferencia-domiciliario, se descuenta
+//   lo adelantado más el costo del domicilio (el efectivo que el cliente le
+//   da en mano al domiciliario es su pago directo, no entra a este cuadre).
 // - efectivo-transferencia: igual a la lógica de mixto ya existente en
 //   domicilios normales (el efectivo cubre el domicilio, el sobrante se entrega).
 export const calcFavorMixto = (
@@ -77,13 +78,10 @@ export const calcFavorMixto = (
   valorEfectivoMixto: number,
   valorAdelantado: number
 ): { descuento: number; sobranteEfectivo: number } => {
-  if (combo === "transferencia-domiciliario") {
+  if (combo === "transferencia-domiciliario" || combo === "efectivo-domiciliario") {
     return { descuento: valorAdelantado + costoDomicilio, sobranteEfectivo: 0 };
   }
   const sobranteEfectivo = Math.max(0, valorEfectivoMixto - costoDomicilio);
-  if (combo === "efectivo-domiciliario") {
-    return { descuento: valorAdelantado, sobranteEfectivo };
-  }
   return { descuento: 0, sobranteEfectivo };
 };
 

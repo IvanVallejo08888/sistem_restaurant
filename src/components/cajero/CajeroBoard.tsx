@@ -512,14 +512,14 @@ function DetalleCajero({ facturas, nombre, onClose }: {
                 <th className="px-3 py-2 font-bold">Pago</th>
                 <th className="px-3 py-2 font-bold text-right">Productos</th>
                 <th className="px-3 py-2 font-bold text-right">Domicilio</th>
-                <th className="px-3 py-2 font-bold text-right">Sobrante</th>
+                <th className="px-3 py-2 font-bold text-right">Sobrante/Falta</th>
               </tr>
             </thead>
             <tbody>
               {facturas.map((f) => {
                 const costoDomicilio = f.valorDomicilio ?? 0;
-                const sobranteMixto = f.metodoPago === "mixto"
-                  ? Math.max(0, (f.valorEfectivo ?? 0) - costoDomicilio)
+                const excedenteMixto = f.metodoPago === "mixto"
+                  ? (f.valorEfectivo ?? 0) - costoDomicilio
                   : 0;
                 return (
                   <tr key={f.id} className="border-t border-sand">
@@ -539,8 +539,13 @@ function DetalleCajero({ facturas, nombre, onClose }: {
                     </td>
                     <td className="px-3 py-2 text-right text-cocoa">{formatCOP(f.subtotal)}</td>
                     <td className="px-3 py-2 text-right text-cocoa/70">{formatCOP(costoDomicilio)}</td>
-                    <td className="px-3 py-2 text-right font-semibold text-amber-700">
-                      {sobranteMixto > 0 ? formatCOP(sobranteMixto) : "—"}
+                    <td className={cx(
+                      "px-3 py-2 text-right font-semibold",
+                      excedenteMixto > 0 ? "text-amber-700" : excedenteMixto < 0 ? "text-red-700" : "text-cocoa/50"
+                    )}>
+                      {excedenteMixto > 0 && formatCOP(excedenteMixto)}
+                      {excedenteMixto < 0 && `−${formatCOP(Math.abs(excedenteMixto))}`}
+                      {excedenteMixto === 0 && "—"}
                     </td>
                   </tr>
                 );
@@ -550,7 +555,8 @@ function DetalleCajero({ facturas, nombre, onClose }: {
         </div>
         <p className="text-xs text-cocoa/50">
           Efectivo: suma solo productos. Transferencia: resta el domicilio. Mixto: el efectivo
-          recibido cubre primero el costo del domicilio; lo que sobra es de la empresa.
+          recibido cubre primero el costo del domicilio; lo que sobra es de la empresa y lo que
+          falta se le reconoce al domiciliario.
         </p>
 
         <div className="space-y-2 rounded-xl border border-sand bg-sand/30 p-4 text-sm">
@@ -581,6 +587,16 @@ function DetalleCajero({ facturas, nombre, onClose }: {
           >
             <span className="font-bold text-amber-900">Sobrante efectivo (mixto) a entregar</span>
             <span className="font-display text-lg font-black text-amber-900">{formatCOP(cuadre.efectivoSobranteMixto)}</span>
+          </div>
+        )}
+
+        {cuadre.faltanteEnvioMixto > 0 && (
+          <div
+            className="flex items-center justify-between rounded-xl border border-red-300 bg-red-50 px-5 py-3"
+            title="Efectivo recibido en pedidos mixtos que no alcanzó a cubrir el costo del domicilio. La empresa le debe esa diferencia al domiciliario."
+          >
+            <span className="font-bold text-red-700">Faltante envío (mixto) a reconocer</span>
+            <span className="font-display text-lg font-black text-red-700">−{formatCOP(cuadre.faltanteEnvioMixto)}</span>
           </div>
         )}
 
