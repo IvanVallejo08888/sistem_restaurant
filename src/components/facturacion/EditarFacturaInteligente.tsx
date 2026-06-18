@@ -7,14 +7,20 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ProductPicker } from "./ProductPicker";
 import { cx, formatCOP } from "@/lib/utils";
-import { esDomicilioLike, folio, metodosPagoOrden, mediosTransferencia, subtotalDe, totalDe } from "@/lib/factura";
-import { Factura, ItemFactura, MetodoPago, MedioTransferencia } from "@/types";
+import {
+  esDomicilioLike, folio, metodosPagoOrden, metodosPagoFavor, mediosTransferencia,
+  combosMixtoFavor, comboFavorIncluye, calcFavorMixto, subtotalDe, totalDe,
+} from "@/lib/factura";
+import { Factura, ItemFactura, MetodoPago, MedioTransferencia, TipoMixtoFavor } from "@/types";
 
 // Edición inteligente:
 // - Si se agregan productos a una factura ya preparada (estado "listo" o "completado"),
 //   los nuevos ítems se marcan con `nuevo: true` (fondo rosado) y la factura vuelve a "pendiente" (cocina).
 // - Si solo cambian método de pago / barrio / datos, NO vuelve a cocina:
 //   si estaba completada o lista, se deja lista para el despachador.
+// - Tipo "favor": usa metodosPagoFavor (incluye "Domiciliario") y, para Mixto,
+//   el mismo selector de combinaciones que Facturar.tsx (ver registrarFavor),
+//   en vez del split genérico efectivo/transferencia de los demás tipos.
 export function EditarFacturaInteligente({
   factura, onClose,
 }: {
@@ -22,6 +28,7 @@ export function EditarFacturaInteligente({
   onClose: () => void;
 }) {
   const updateFactura = useData((s) => s.updateFactura);
+  const esFavor = factura.tipo === "favor";
 
   const [items, setItems] = useState<ItemFactura[]>(factura.items.map((it) => ({ ...it, nuevo: false })));
   const [metodo, setMetodo] = useState<MetodoPago>(factura.metodoPago);
@@ -30,6 +37,20 @@ export function EditarFacturaInteligente({
   // Pago Mixto: carga los valores exactos ya guardados, sin recalcular.
   const [valorEfectivo, setValorEfectivo] = useState(factura.valorEfectivo ?? 0);
   const [medioTransferencia, setMedioTransferencia] = useState<MedioTransferencia | "">(factura.medioTransferencia ?? "");
+  // Pago Mixto en Favor: combinación elegida + sus campos propios.
+  const [tipoMixtoFavor, setTipoMixtoFavor] = useState<TipoMixtoFavor | "">(factura.tipoMixtoFavor ?? "");
+  const [valorTransferenciaFavor, setValorTransferenciaFavor] = useState(
+    factura.tipoMixtoFavor === "transferencia-domiciliario" ? (factura.valorTransferencia ?? 0) : 0
+  );
+  const [valorAdelantado, setValorAdelantado] = useState(factura.valorDomiciliarioAdelantado ?? 0);
+
+  const resetFavorMixto = () => {
+    setTipoMixtoFavor("");
+    setValorEfectivo(0);
+    setValorTransferenciaFavor(0);
+    setMedioTransferencia("");
+    setValorAdelantado(0);
+  };
 
   const preparada = factura.estado !== "pendiente";
 
@@ -45,14 +66,67 @@ export function EditarFacturaInteligente({
   const seAgregaronProductos = items.some((it) => it.nuevo);
   const subtotal = subtotalDe(items);
   const esDomicilioTipo = esDomicilioLike(factura.tipo);
-  const total = totalDe(items, esDomicilioTipo ? valorDom : 0);
-  // Mixto: transferencia = total - efectivo (igual que en Facturar.tsx)
-  const valorTransferencia = metodo === "mixto" ? Math.max(0, total - valorEfectivo) : 0;
-  const mixtoValido = metodo !== "mixto" || valorTransferencia === 0 || !!medioTransferencia;
+  const total = totalDe(items, (esDomicilioTipo || esFavor) ? valorDom : 0);
+
+  // ── Mixto genérico (mesa/domicilio/reserva-*): transferencia = total - efectivo ──
+  const valorTransferencia = !esFavor && metodo === "mixto" ? Math.max(0, total - valorEfectivo) : 0;
+
+  // ── Mixto en Favor: mismas fórmulas que registrarFavor() en Facturar.tsx ──
+  const transferenciaFavorEsAuto = tipoMixtoFavor === "efectivo-transferencia";
+  const valorTransferenciaFavorCalculado = transferenciaFavorEsAuto
+    ? Math.max(0, subtotal - valorEfectivo)
+    : valorTransferenciaFavor;
+  const valorAdelantadoCalculado =
+    tipoMixtoFavor === "transferencia-domiciliario"
+      ? Math.max(0, subtotal - valorTransferenciaFavor)
+      : tipoMixtoFavor === "efectivo-domiciliario"
+      ? Math.max(0, subtotal - valorEfectivo)
+      : valorAdelantado;
+  const favorMixtoCalc =
+    esFavor && metodo === "mixto" && tipoMixtoFavor
+      ? calcFavorMixto(tipoMixtoFavor, valorDom || 0, valorEfectivo, valorAdelantadoCalculado)
+      : { descuento: 0, sobranteEfectivo: 0 };
+  const favorMixtoValido =
+    !esFavor || metodo !== "mixto" || (
+      !!tipoMixtoFavor &&
+      (!comboFavorIncluye(tipoMixtoFavor, "efectivo") || valorEfectivo > 0) &&
+      (!comboFavorIncluye(tipoMixtoFavor, "transferencia") || (
+        transferenciaFavorEsAuto
+          ? !!medioTransferencia
+          : (valorTransferenciaFavor > 0 && !!medioTransferencia)
+      ))
+    );
+
+  const mixtoValido = esFavor
+    ? favorMixtoValido
+    : metodo !== "mixto" || valorTransferencia === 0 || !!medioTransferencia;
 
   const guardar = () => {
     if (!mixtoValido) return;
-    const base: Partial<Factura> = {
+
+    const esMixtoFavor = esFavor && metodo === "mixto" && !!tipoMixtoFavor;
+    const descuentoFavor = esMixtoFavor
+      ? favorMixtoCalc.descuento
+      : metodo === "domiciliario" ? total : (valorDom || 0);
+    const sobranteFavor = esMixtoFavor ? favorMixtoCalc.sobranteEfectivo : 0;
+    const incluyeEfectivo = esMixtoFavor && comboFavorIncluye(tipoMixtoFavor as TipoMixtoFavor, "efectivo");
+    const incluyeTransferencia = esMixtoFavor && comboFavorIncluye(tipoMixtoFavor as TipoMixtoFavor, "transferencia");
+    const incluyeDomiciliario = esMixtoFavor && comboFavorIncluye(tipoMixtoFavor as TipoMixtoFavor, "domiciliario");
+
+    const base: Partial<Factura> = esFavor ? {
+      items,
+      metodoPago: metodo,
+      valorDomicilio: valorDom || undefined,
+      subtotal,
+      total,
+      descuentoDomiciliario: descuentoFavor > 0 ? descuentoFavor : undefined,
+      tipoMixtoFavor: esMixtoFavor ? tipoMixtoFavor : undefined,
+      valorEfectivo: incluyeEfectivo ? valorEfectivo : undefined,
+      valorTransferencia: incluyeTransferencia ? valorTransferenciaFavorCalculado : undefined,
+      medioTransferencia: incluyeTransferencia ? (medioTransferencia as MedioTransferencia) : undefined,
+      valorDomiciliarioAdelantado: incluyeDomiciliario ? valorAdelantadoCalculado : undefined,
+      efectivoSobranteFavor: sobranteFavor > 0 ? sobranteFavor : undefined,
+    } : {
       items,
       metodoPago: metodo,
       barrio: esDomicilioTipo ? barrio : undefined,
@@ -135,15 +209,26 @@ export function EditarFacturaInteligente({
           </div>
         </div>
 
-        <div>
-          <p className="mb-2 text-sm font-bold text-cocoa/80">Agregar producto</p>
-          <ProductPicker localId={factura.localId} onAdd={addItem} />
-        </div>
+        {!esFavor && (
+          <div>
+            <p className="mb-2 text-sm font-bold text-cocoa/80">Agregar producto</p>
+            <ProductPicker localId={factura.localId} onAdd={addItem} />
+          </div>
+        )}
+
+        {esFavor && (
+          <Input
+            label="Valor del domicilio (COP)"
+            type="number"
+            value={valorDom || ""}
+            onChange={(e) => setValorDom(Number(e.target.value) || 0)}
+          />
+        )}
 
         <div>
           <p className="mb-2 text-sm font-bold text-cocoa/80">Método de pago</p>
           <div className="grid grid-cols-3 gap-2">
-            {metodosPagoOrden.map((m) => (
+            {(esFavor ? metodosPagoFavor : metodosPagoOrden).map((m) => (
               <button
                 key={m.value}
                 onClick={() => {
@@ -151,6 +236,7 @@ export function EditarFacturaInteligente({
                   setMetodo(m.value);
                   setValorEfectivo(0);
                   setMedioTransferencia("");
+                  if (esFavor) resetFavorMixto();
                 }}
                 className={cx(
                   "rounded-xl border px-3 py-2 text-sm font-bold transition",
@@ -162,7 +248,8 @@ export function EditarFacturaInteligente({
             ))}
           </div>
 
-          {metodo === "mixto" && (
+          {/* Mixto genérico (mesa/domicilio/reserva-*) */}
+          {!esFavor && metodo === "mixto" && (
             <div className="mt-4 space-y-3 rounded-xl border border-raspberry/20 bg-raspberry-light/20 p-3 animate-fade-up">
               <Input
                 label="Valor en efectivo (COP)"
@@ -194,6 +281,88 @@ export function EditarFacturaInteligente({
                     ))}
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* Mixto en Favor: combinación Efectivo/Transferencia/Domiciliario */}
+          {esFavor && metodo === "mixto" && (
+            <div className="mt-4 space-y-3 rounded-xl border border-raspberry/20 bg-raspberry-light/20 p-3 animate-fade-up">
+              <p className="text-sm font-bold text-cocoa/80">¿Qué combinación de pago fue?</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {combosMixtoFavor.map((c) => (
+                  <button
+                    key={c.value}
+                    onClick={() => {
+                      setTipoMixtoFavor(c.value);
+                      setValorEfectivo(0);
+                      setValorTransferenciaFavor(0);
+                      setMedioTransferencia("");
+                      setValorAdelantado(0);
+                    }}
+                    className={cx(
+                      "rounded-xl border px-3 py-2 text-sm font-bold transition",
+                      tipoMixtoFavor === c.value
+                        ? "border-raspberry bg-raspberry text-white"
+                        : "border-sand bg-white text-cocoa hover:border-raspberry"
+                    )}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+
+              {tipoMixtoFavor && (
+                <div className="space-y-3 animate-fade-up">
+                  {comboFavorIncluye(tipoMixtoFavor, "efectivo") && (
+                    <Input
+                      label="Valor en efectivo (COP)"
+                      type="number"
+                      value={valorEfectivo || ""}
+                      onChange={(e) => setValorEfectivo(Number(e.target.value) || 0)}
+                    />
+                  )}
+                  {comboFavorIncluye(tipoMixtoFavor, "transferencia") && (
+                    <>
+                      {transferenciaFavorEsAuto ? (
+                        <div className="flex items-center justify-between rounded-xl border border-sand bg-white px-4 py-2.5">
+                          <span className="text-sm text-cocoa/70">Valor en transferencia</span>
+                          <span className="font-bold text-cocoa">{formatCOP(valorTransferenciaFavorCalculado)}</span>
+                        </div>
+                      ) : (
+                        <Input
+                          label="Valor en transferencia (COP)"
+                          type="number"
+                          value={valorTransferenciaFavor || ""}
+                          onChange={(e) => setValorTransferenciaFavor(Number(e.target.value) || 0)}
+                        />
+                      )}
+                      <p className="text-sm font-bold text-cocoa/80">¿Por qué medio de transferencia?</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {mediosTransferencia.map((m) => (
+                          <button
+                            key={m.value}
+                            onClick={() => setMedioTransferencia(m.value)}
+                            className={cx(
+                              "rounded-xl border px-3 py-2 text-sm font-bold transition",
+                              medioTransferencia === m.value
+                                ? "border-raspberry bg-raspberry text-white"
+                                : "border-sand bg-white text-cocoa hover:border-raspberry"
+                            )}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {comboFavorIncluye(tipoMixtoFavor, "domiciliario") && (
+                    <div className="flex items-center justify-between rounded-xl border border-sand bg-white px-4 py-2.5">
+                      <span className="text-sm text-cocoa/70">Valor pagado por el domiciliario</span>
+                      <span className="font-bold text-cocoa">{formatCOP(valorAdelantadoCalculado)}</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

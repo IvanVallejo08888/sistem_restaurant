@@ -1,8 +1,8 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Bike, Wallet, ArrowRight, ArrowLeftRight, Banknote, Smartphone, Receipt, Plus, Trash2,
-  ChevronDown, TrendingUp, MapPin, IceCream, Utensils, Package, LayoutGrid,
+  Bike, Wallet, ArrowRight, ArrowLeftRight, Banknote, Receipt, Plus, Trash2,
+  ChevronDown, TrendingUp, IceCream, Utensils, Package, LayoutGrid,
 } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
@@ -10,8 +10,8 @@ import { formatCOP, cx } from "@/lib/utils";
 import { labelMetodo, metodosPago } from "@/lib/factura";
 import {
   facturasDelDia, gastosDelDia,
-  cajaPorMetodosCompleto, totalResumen, transferenciaResumen, resumenMetodosVacio,
-  utilidadDelDia, cajaDomiciliosPorDomiciliario, cajaIngresosDomicilios,
+  cajaTotalProductos, resumenMetodosVacio,
+  utilidadDelDia,
   cajaMesasPorMetodo, cajaPorCategoria,
   totalGastos, totalGastosEfectivo,
   cuadreDomiciliario, ResumenMetodos,
@@ -168,25 +168,17 @@ export function CajeroBoard() {
   const gastosHoy = useMemo(() => gastosDelDia(gastos, localId), [gastos, localId]);
 
   // ── Resúmenes de caja ───────────────────────────────────────────────────────
-  const cajaResumen = useMemo(() => cajaPorMetodosCompleto(delDia), [delDia]);
-  const totalCaja = totalResumen(cajaResumen);
-  const efectivo = cajaResumen.efectivo;
-  const transferencias = transferenciaResumen(cajaResumen);
+  // Caja total: solo productos facturados (sin domicilio, sin Favores).
+  const cajaProductos = useMemo(() => cajaTotalProductos(delDia), [delDia]);
+  const totalCaja = cajaProductos.total;
   const gastosTotal = totalGastos(gastosHoy);
   const gastosEfectivo = totalGastosEfectivo(gastosHoy);
-  const efectivoNeto = efectivo - gastosEfectivo;
 
   const { utilidad, porMetodo: utilidadPorMetodo } = useMemo(
     () => utilidadDelDia(delDia, gastosHoy),
     [delDia, gastosHoy]
   );
 
-  const domicilioStats = useMemo(
-    () => cajaDomiciliosPorDomiciliario(delDia, domiciliarios),
-    [delDia, domiciliarios]
-  );
-
-  const ingresosDom = useMemo(() => cajaIngresosDomicilios(delDia), [delDia]);
   const mesasStats = useMemo(() => cajaMesasPorMetodo(delDia), [delDia]);
 
   const catStats = useMemo(
@@ -196,6 +188,38 @@ export function CajeroBoard() {
 
   // Domiciliarios con actividad del día
   const conActividad = domiciliarios.filter((d) => delDia.some((f) => f.domiciliarioId === d.id));
+  // Total de facturas del día por domiciliario (incluye "Sin asignar"); usado
+  // por la tarjeta "Total facturas". Ordenado de mayor a menor.
+  const facturasPorDomiciliario = useMemo(() => {
+    const acc = new Map<string, number>();
+    delDia.forEach((f) => {
+      const nombre = f.domiciliarioId
+        ? domiciliarios.find((d) => d.id === f.domiciliarioId)?.nombreCompleto ?? "Domiciliario"
+        : "Sin asignar";
+      acc.set(nombre, (acc.get(nombre) ?? 0) + 1);
+    });
+    return [...acc.entries()].sort(([, a], [, b]) => b - a);
+  }, [delDia, domiciliarios]);
+
+  // ── Efectivo neto en caja: base de caja + efectivo de mesas + cuadres de domiciliarios ──
+  const [baseCaja, setBaseCaja] = useState(0);
+  const [editandoBase, setEditandoBase] = useState(false);
+  const claveBaseCaja = `base-caja-${new Date().toISOString().slice(0, 10)}`;
+  useEffect(() => {
+    const guardada = localStorage.getItem(claveBaseCaja);
+    if (guardada) setBaseCaja(Math.round(Number(guardada) || 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const guardarBaseCaja = (valor: number) => {
+    const v = Math.round(valor || 0);
+    setBaseCaja(v);
+    localStorage.setItem(claveBaseCaja, String(v));
+  };
+  const domiciliariosCuadreTotal = conActividad.reduce(
+    (acc, d) => acc + cuadreDomiciliario(delDia.filter((f) => f.domiciliarioId === d.id)).efectivoAEntregar,
+    0
+  );
+  const efectivoNeto = baseCaja + mesasStats.efectivo + domiciliariosCuadreTotal;
 
   return (
     <div className="space-y-8">
@@ -203,48 +227,48 @@ export function CajeroBoard() {
         <h2 className="mb-1 font-display text-2xl font-semibold text-cocoa">Caja del día</h2>
         <p className="mb-5 text-sm text-cocoa/60">Resumen de ingresos de hoy.</p>
 
-        {/* Fila superior: Caja total (no expandible) + Efectivo (no expandible) */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {/* Caja total */}
-          <div className="rounded-xl2 border border-cocoa bg-cocoa p-4 text-white">
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-white/70">
-              <Wallet size={14} /> Caja total
-            </p>
-            <p className="mt-1 font-display text-2xl font-black">{formatCOP(totalCaja)}</p>
-          </div>
+        {/* Caja total — expandible: efectivo + transferencias (solo productos, sin domicilio ni favores) */}
+        <ExpandCard
+          icon={<Wallet size={14} />}
+          label="Caja total"
+          value={formatCOP(totalCaja)}
+          colorClass="border-cocoa bg-cocoa text-white"
+        >
+          <p className="mb-2 text-xs font-semibold opacity-60">Solo productos facturados (sin domicilio ni Favores)</p>
+          <DesgloseMétodos resumen={cajaProductos} />
+        </ExpandCard>
 
-          {/* Efectivo */}
-          <div className="rounded-xl2 border border-pistachio/40 bg-pistachio/20 p-4 text-cocoa">
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-cocoa/50">
-              <Banknote size={14} /> Efectivo
-            </p>
-            <p className="mt-1 font-display text-2xl font-black">{formatCOP(efectivo)}</p>
-          </div>
+        {/* Efectivo neto en caja — base de caja + efectivo de mesas + cuadres de domiciliarios */}
+        <button
+          type="button"
+          onClick={() => setEditandoBase(true)}
+          className="mt-3 flex w-full items-center justify-between rounded-xl border border-raspberry/30 bg-raspberry-light/40 px-5 py-4 text-left transition hover:bg-raspberry-light/60"
+        >
+          <span className="flex items-center gap-2 font-bold text-raspberry-dark">
+            <Banknote size={18} /> Efectivo neto en caja
+          </span>
+          <span className="font-display text-2xl font-black text-raspberry-dark">{formatCOP(efectivoNeto)}</span>
+        </button>
 
-          {/* Transferencias — expandible */}
-          <ExpandCard
-            icon={<Smartphone size={14} />}
-            label="Transferencias"
-            value={formatCOP(transferencias)}
-            colorClass="border-mint/40 bg-mint/20 text-cocoa"
-          >
-            <div className="divide-y divide-cocoa/10">
-              {(["nequi", "bancolombia", "daviplata", "datafono"] as (keyof ResumenMetodos)[]).map((k) => (
-                <Fila key={k} label={LABELS_METODO_ES[k]} value={cajaResumen[k]} />
-              ))}
-            </div>
-          </ExpandCard>
-        </div>
-
-        {/* Efectivo neto (si hay gastos en efectivo) */}
-        {gastosEfectivo > 0 && (
-          <div className="mt-3 flex items-center justify-between rounded-xl bg-cocoa px-5 py-4 text-white">
-            <span className="flex items-center gap-2 font-bold">
-              <Banknote size={18} /> Efectivo neto en caja
-            </span>
-            <span className="font-display text-2xl font-black">{formatCOP(efectivoNeto)}</span>
-          </div>
-        )}
+        <Modal
+          open={editandoBase}
+          onClose={() => setEditandoBase(false)}
+          title="Base de caja del día"
+          footer={
+            <Button onClick={() => setEditandoBase(false)}>Guardar</Button>
+          }
+        >
+          <p className="mb-3 text-sm text-cocoa/60">
+            Dinero inicial en caja al abrir el día. Se suma al efectivo de mesas y a los cuadres
+            de domiciliarios para calcular el efectivo neto en caja.
+          </p>
+          <Input
+            label="Base de caja (COP)"
+            type="number"
+            value={baseCaja || ""}
+            onChange={(e) => guardarBaseCaja(Number(e.target.value) || 0)}
+          />
+        </Modal>
 
         {/* Fila de botones de detalle: Utilidad + 5 nuevos */}
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -262,24 +286,6 @@ export function CajeroBoard() {
             <p className="mt-2 border-t border-current/10 pt-2 text-xs opacity-60">
               El costo de los favores ya se incluye aquí como gasto empresarial (ver &ldquo;Gastos empresariales del día&rdquo;).
             </p>
-          </ExpandCard>
-
-          {/* Domicilios del día — esmeralda */}
-          <ExpandCard
-            icon={<Bike size={14} />}
-            label="Domicilios del día"
-            value={formatCOP(domicilioStats.total)}
-            colorClass="border-emerald-200 bg-emerald-50 text-emerald-900"
-          >
-            {domicilioStats.porDomiciliario.length === 0 ? (
-              <p className="text-xs opacity-60">Sin domicilios asignados hoy.</p>
-            ) : (
-              <div className="divide-y divide-emerald-200">
-                {domicilioStats.porDomiciliario.map((d) => (
-                  <Fila key={d.nombre} label={d.nombre} value={d.total} />
-                ))}
-              </div>
-            )}
           </ExpandCard>
 
           {/* Heladería — azul cielo */}
@@ -302,14 +308,21 @@ export function CajeroBoard() {
             <DesgloseMétodos resumen={catStats.comidas} />
           </ExpandCard>
 
-          {/* Ingresos por envíos — lima/oliva */}
+          {/* Total facturas — lima/oliva */}
           <ExpandCard
             icon={<Package size={14} />}
-            label="Ingresos por domicilios"
-            value={formatCOP(ingresosDom.total)}
+            label="Total facturas"
+            value={String(delDia.length)}
             colorClass="border-lime-200 bg-lime-50 text-lime-900"
           >
-            <DesgloseMétodos resumen={ingresosDom} />
+            <div className="divide-y divide-lime-200">
+              {facturasPorDomiciliario.map(([nombre, cantidad]) => (
+                <div key={nombre} className="flex items-center justify-between py-1 text-sm">
+                  <span className="opacity-70">{nombre}</span>
+                  <span className="font-semibold">{cantidad}</span>
+                </div>
+              ))}
+            </div>
           </ExpandCard>
 
           {/* Mesas — lavanda */}

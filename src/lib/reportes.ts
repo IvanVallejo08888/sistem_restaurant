@@ -65,6 +65,33 @@ export const transferenciaResumen = (r: ResumenMetodos) =>
 
 export const cajaTotal = (facturas: Factura[]) => totalResumen(cajaPorMetodosCompleto(facturas));
 
+// Caja Total "solo productos": para la tarjeta de Caja Total del cajero.
+// A diferencia de cajaPorMetodosCompleto (usada en Excel/Reportes admin, que
+// suma f.total tal cual), esta excluye los Favores por completo y, de cada
+// factura, solo cuenta el subtotal de productos (sin el costo de domicilio).
+// En pagos mixtos, el subtotal de productos se reparte entre efectivo y
+// transferencia en la misma proporción real cobrada en cada uno.
+export const cajaTotalProductos = (facturas: Factura[]): ResumenMetodos & { total: number } => {
+  const r = resumenMetodosVacio();
+  facturas
+    .filter((f) => f.tipo !== "favor" && f.metodoPago !== "domiciliario")
+    .forEach((f) => {
+      const productos = f.subtotal;
+      if (f.metodoPago === "mixto") {
+        const totalPagado = (f.valorEfectivo ?? 0) + (f.valorTransferencia ?? 0);
+        if (totalPagado <= 0) return;
+        const prodEfectivo = Math.round(productos * (f.valorEfectivo ?? 0) / totalPagado);
+        r.efectivo += prodEfectivo;
+        const m = f.medioTransferencia as keyof ResumenMetodos | undefined;
+        if (m && m in r) r[m] += productos - prodEfectivo;
+        return;
+      }
+      const m = f.metodoPago as keyof ResumenMetodos;
+      if (m in r) r[m] += productos;
+    });
+  return { ...r, total: totalResumen(r) };
+};
+
 // Retrocompatibilidad: efectivo vs transferencias (usado en DetalleCajero)
 export const cajaEfectivoVsTransferencia = (facturas: Factura[]) => {
   const r = cajaPorMetodosCompleto(facturas);
