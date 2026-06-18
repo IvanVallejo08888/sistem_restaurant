@@ -268,9 +268,13 @@ export const cajaPorCategoria = (
 
 // Aporte de una factura individual al efectivo que el domiciliario debe
 // entregar, calculado según cómo quedó cubierto el costo de su domicilio:
-// - Favor con pago Domiciliario: el domiciliario puso de su bolsillo el
-//   producto, el domicilio, o ambos, así que se le reconoce completo
+// - Favor con pago Domiciliario (puro): el domiciliario puso de su bolsillo
+//   el producto, el domicilio, o ambos, así que se le reconoce completo
 //   (producto + domicilio).
+// - Favor con pago mixto Transferencia y Domiciliario: el cliente cubrió
+//   parte por transferencia (ya recibida por la empresa, no genera deuda) y
+//   el domiciliario adelantó el resto de su bolsillo; solo ese adelanto más
+//   el domicilio (si lo tuvo) se le reconoce.
 // - Favor con cualquier otro método (normalmente efectivo, asumido por la
 //   empresa): no hay venta real de producto, así que solo importa el envío.
 //   Si tuvo costo de domicilio se resta ese valor; si no tuvo, el aporte es 0.
@@ -287,6 +291,9 @@ const aporteDomicilio = (f: Factura): number => {
   const costoDomicilio = f.valorDomicilio ?? 0;
   if (f.tipo === "favor") {
     if (f.metodoPago === "domiciliario") return -(f.subtotal + costoDomicilio);
+    if (f.metodoPago === "mixto" && f.tipoMixtoFavor === "transferencia-domiciliario") {
+      return -((f.valorDomiciliarioAdelantado ?? 0) + costoDomicilio);
+    }
     return costoDomicilio > 0 ? -costoDomicilio : 0;
   }
   if (f.metodoPago === "efectivo") return 0;

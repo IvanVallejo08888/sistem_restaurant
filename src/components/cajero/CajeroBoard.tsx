@@ -537,7 +537,12 @@ function DetalleCajero({ facturas, nombre, onClose }: {
                       )}>
                         {labelMetodoFactura(f)}
                       </span>
-                      {f.metodoPago === "mixto" && (
+                      {f.metodoPago === "mixto" && f.tipoMixtoFavor === "transferencia-domiciliario" && (
+                        <p className="mt-0.5 text-[11px] text-cocoa/50">
+                          Transf. {formatCOP(f.valorTransferencia ?? 0)} · Domiciliario {formatCOP(f.valorDomiciliarioAdelantado ?? 0)}
+                        </p>
+                      )}
+                      {f.metodoPago === "mixto" && f.tipoMixtoFavor !== "transferencia-domiciliario" && (
                         <p className="mt-0.5 text-[11px] text-cocoa/50">
                           Efectivo {formatCOP(f.valorEfectivo ?? 0)} · Transf. {formatCOP(f.valorTransferencia ?? 0)}
                         </p>
