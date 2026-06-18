@@ -272,9 +272,11 @@ export const cajaPorCategoria = (
 //   tuvo costo de domicilio se resta ese valor; si no tuvo, el aporte es 0.
 // - Efectivo: el cliente pagó todo en efectivo (producto + domicilio), el
 //   domicilio queda cubierto con ese mismo efectivo y su aporte es 0.
-// - Mixto: si la parte en efectivo recibida alcanza para cubrir el
-//   domicilio, su aporte es 0 (igual que en efectivo); si no alcanza, se
-//   resta el valor completo del domicilio (igual que en transferencia).
+// - Mixto: el efectivo recibido se usa primero para cubrir el domicilio. Si
+//   alcanza o lo supera, el aporte es 0 (igual que en efectivo). Si no
+//   alcanza, solo se resta la diferencia que faltó por cubrir (la que salió
+//   de la parte pagada por transferencia), nunca el valor completo del
+//   domicilio.
 // - Cualquier otro medio (transferencia, datáfono, etc.): el dinero del
 //   domicilio no entró en efectivo, así que se resta su valor completo.
 const aporteDomicilio = (f: Factura): number => {
@@ -283,7 +285,8 @@ const aporteDomicilio = (f: Factura): number => {
   if (f.metodoPago === "efectivo") return 0;
   if (f.metodoPago === "mixto") {
     const efectivoRecibido = f.valorEfectivo ?? 0;
-    return efectivoRecibido >= costoDomicilio ? 0 : -costoDomicilio;
+    const faltante = costoDomicilio - efectivoRecibido;
+    return faltante > 0 ? -faltante : 0;
   }
   return -costoDomicilio;
 };
