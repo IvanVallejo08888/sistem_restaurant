@@ -542,7 +542,12 @@ function DetalleCajero({ facturas, nombre, onClose }: {
                           Transf. {formatCOP(f.valorTransferencia ?? 0)} · Domiciliario {formatCOP(f.valorDomiciliarioAdelantado ?? 0)}
                         </p>
                       )}
-                      {f.metodoPago === "mixto" && f.tipoMixtoFavor !== "transferencia-domiciliario" && (
+                      {f.metodoPago === "mixto" && f.tipoMixtoFavor === "efectivo-domiciliario" && (
+                        <p className="mt-0.5 text-[11px] text-cocoa/50">
+                          Efectivo {formatCOP(f.valorEfectivo ?? 0)} · Domiciliario {formatCOP(f.valorDomiciliarioAdelantado ?? 0)}
+                        </p>
+                      )}
+                      {f.metodoPago === "mixto" && (!f.tipoMixtoFavor || f.tipoMixtoFavor === "efectivo-transferencia") && (
                         <p className="mt-0.5 text-[11px] text-cocoa/50">
                           Efectivo {formatCOP(f.valorEfectivo ?? 0)} · Transf. {formatCOP(f.valorTransferencia ?? 0)}
                         </p>
