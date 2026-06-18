@@ -22,20 +22,23 @@ export const normalize = (s: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 
-// Hora en formato 12h (es-CO)
+// Hora en formato 12h, siempre hora de Bogotá (independiente de la zona
+// horaria del dispositivo o del servidor donde se ejecute).
 export const formatHora12 = (iso: string) =>
   new Date(iso).toLocaleTimeString("es-CO", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
+    timeZone: "America/Bogota",
   });
 
-// Fecha en formato DD/MM/YYYY (es-CO)
+// Fecha en formato DD/MM/YYYY, siempre hora de Bogotá.
 export const formatFecha = (iso: string) =>
   new Date(iso).toLocaleDateString("es-CO", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: "America/Bogota",
   });
 
 // Fecha y hora forzadas a America/Bogota, independiente de la zona horaria del
@@ -48,7 +51,7 @@ export const formatFechaCO = (iso: string) =>
 
 export const formatHoraCO = (iso: string) =>
   new Date(iso).toLocaleTimeString("es-CO", {
-    hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/Bogota",
+    hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/Bogota",
   });
 
 // Suma minutos a una fecha ISO y devuelve hora 12h

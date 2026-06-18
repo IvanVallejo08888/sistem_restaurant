@@ -204,7 +204,9 @@ export function CajeroBoard() {
   // ── Efectivo neto en caja: base de caja + efectivo de mesas + cuadres de domiciliarios ──
   const [baseCaja, setBaseCaja] = useState(0);
   const [editandoBase, setEditandoBase] = useState(false);
-  const claveBaseCaja = `base-caja-${new Date().toISOString().slice(0, 10)}`;
+  // Clave por fecha en hora de Bogotá (no UTC), para que la base de caja no
+  // cambie de "día" varias horas antes de la medianoche real del local.
+  const claveBaseCaja = `base-caja-${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date())}`;
   useEffect(() => {
     const guardada = localStorage.getItem(claveBaseCaja);
     if (guardada) setBaseCaja(Math.round(Number(guardada) || 0));

@@ -45,7 +45,10 @@ export function ReporteDelDiaButton({ localId }: { localId: string }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `reporte-dia-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      // Fecha del archivo en hora de Bogotá (no UTC), para que coincida con el
+      // día que el usuario ve en pantalla incluso cerca de la medianoche.
+      const fechaBogota = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
+      a.download = `reporte-dia-${fechaBogota}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {

@@ -9,6 +9,7 @@ import {
   cajaPorMetodosCompleto, cajaPorCategoria, totalResumen, totalGastos, cuadreDomiciliario,
 } from "./reportes";
 import { folio, esDomicilioLike, labelMetodo } from "./factura";
+import { formatFecha, formatHoraCO } from "./utils";
 
 // ── Paleta (mismos tokens de tailwind.config.ts) ──────────────────────────────
 const COLOR_RASPBERRY = "FFD63B6A";
@@ -21,10 +22,18 @@ const ENCABEZADO_NOMBRE = "Heladería Antojos";
 
 export type RangoMes = { mes: number; anio: number }; // mes: 1-12
 
+// Bogotá es siempre UTC-5 (sin horario de verano), así que el offset se puede
+// fijar directamente: corre tanto en el navegador como en el servidor de
+// Vercel (UTC), y en ambos casos da el mismo instante real de medianoche en
+// Bogotá — construir esto con `new Date(anio, mes - 1, 1)` usaría la zona
+// horaria del entorno donde corre el código, no la de Bogotá.
 export const rangoFechasMes = ({ mes, anio }: RangoMes) => {
-  const desde = new Date(anio, mes - 1, 1);
-  const hasta = new Date(anio, mes, 1); // primer día del mes siguiente (exclusivo)
-  return { desde: desde.toISOString(), hasta: hasta.toISOString() };
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const [anioSig, mesSig] = mes === 12 ? [anio + 1, 1] : [anio, mes + 1];
+  return {
+    desde: new Date(`${anio}-${pad(mes)}-01T00:00:00.000-05:00`).toISOString(),
+    hasta: new Date(`${anioSig}-${pad(mesSig)}-01T00:00:00.000-05:00`).toISOString(),
+  };
 };
 
 const NOMBRES_MES = [
@@ -251,12 +260,11 @@ export async function generarReporteMensualWorkbook(datos: DatosReporteMensual):
   facturas
     .sort((a, b) => +new Date(a.creadoEn) - +new Date(b.creadoEn))
     .forEach((f) => {
-      const fecha = new Date(f.creadoEn);
       wsVentas.addRow({
         local: nombreLocalRow(f.localId),
         folio: folio(f),
-        fecha: fecha.toLocaleDateString("es-CO"),
-        hora: fecha.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }),
+        fecha: formatFecha(f.creadoEn),
+        hora: formatHoraCO(f.creadoEn),
         tipo: TIPO_LABEL[f.tipo] ?? f.tipo,
         cliente: nombreFactura(f),
         telefono: f.clienteWhatsapp ?? "",
@@ -399,7 +407,7 @@ export async function generarReporteDiaWorkbook(datos: DatosReporteDia): Promise
     .forEach((f) => {
       wsFacturas.addRow({
         folio: folio(f),
-        hora: new Date(f.creadoEn).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }),
+        hora: formatHoraCO(f.creadoEn),
         tipo: TIPO_LABEL[f.tipo] ?? f.tipo,
         cliente: nombreFactura(f),
         valor: f.total,
@@ -425,7 +433,7 @@ export async function generarReporteDiaWorkbook(datos: DatosReporteDia): Promise
         descripcion: g.descripcion,
         valor: g.valor,
         medioPago: labelMetodo(g.medioPago),
-        hora: new Date(g.creadoEn).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }),
+        hora: formatHoraCO(g.creadoEn),
       });
     });
   aplicarFilasAlternadas(wsGastos, 2);

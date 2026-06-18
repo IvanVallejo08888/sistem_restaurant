@@ -5,13 +5,16 @@ import { esDomicilioLike, esTransferencia } from "./factura";
 
 // ── Filtros de fecha ──────────────────────────────────────────────────────────
 
-export const esDeHoy = (iso: string) => {
-  const d = new Date(iso);
-  const h = new Date();
-  return d.getFullYear() === h.getFullYear() &&
-    d.getMonth() === h.getMonth() &&
-    d.getDate() === h.getDate();
-};
+// Fecha calendario (YYYY-MM-DD) en hora de Bogotá. No depende de la zona
+// horaria del entorno donde corre el código: usar getFullYear/getMonth/getDate
+// directamente sería incorrecto en el servidor de Vercel (corre en UTC), que
+// puede estar hasta 5 horas adelantado respecto a Bogotá.
+const fechaBogota = (iso: string) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date(iso));
+
+export const esDeHoy = (iso: string) => fechaBogota(iso) === fechaBogota(new Date().toISOString());
 
 export const facturasDelDia = (facturas: Factura[], localId: string) =>
   facturas.filter((f) => f.localId === localId && esDeHoy(f.creadoEn));

@@ -35,10 +35,13 @@ export async function GET(req: Request) {
   const gastosHoy = gastos.data!.map(rowToGasto).filter((g) => esDeHoy(g.creadoEn));
   const local = rowToLocal(locales.data!);
 
+  // Esta API corre en el servidor de Vercel (UTC), así que la fecha/hora de
+  // Bogotá debe fijarse explícitamente; de lo contrario el reporte se rotula
+  // con el día equivocado cerca de la medianoche.
   const hoy = new Date();
   const wb = await generarReporteDiaWorkbook({
     nombreLocal: local.nombre,
-    fechaLabel: hoy.toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" }),
+    fechaLabel: hoy.toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric", timeZone: "America/Bogota" }),
     facturasDelDiaTodas: todasHoy,
     facturasDelDiaActivas: activasHoy,
     gastosDelDia: gastosHoy,
@@ -47,7 +50,7 @@ export async function GET(req: Request) {
   });
 
   const buffer = await wb.xlsx.writeBuffer();
-  const fechaArchivo = hoy.toISOString().slice(0, 10);
+  const fechaArchivo = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(hoy);
   const nombreSeguro = local.nombre.replace(/[^a-zA-Z0-9-]+/g, "-");
 
   return new NextResponse(buffer, {
