@@ -75,6 +75,9 @@ export type TipoFactura =
   | "mesa" | "domicilio" | "favor" | "reserva-domicilio" | "reserva-mesa"
   | "regalo" | "reserva-regalo";
 
+// Pantalla de selección al entrar a Facturación: filtra qué categorías se ven.
+export type ModoFacturacion = "mesas" | "domicilios";
+
 export type EstadoFactura = "pendiente" | "listo" | "completado";
 
 export type ItemFactura = {

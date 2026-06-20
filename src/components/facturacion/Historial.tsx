@@ -13,7 +13,7 @@ import { Confirm } from "@/components/ui/Confirm";
 import { Empty } from "@/components/ui/Empty";
 import { CompartirFactura } from "./CompartirFactura";
 import { EditarFacturaInteligente } from "./EditarFacturaInteligente";
-import { Factura, TipoFactura } from "@/types";
+import { Factura, ModoFacturacion, TipoFactura } from "@/types";
 
 const TABS: { tipo: TipoFactura; label: string; icon: React.ReactNode }[] = [
   { tipo: "mesa", label: "Mesas", icon: <Armchair size={14} /> },
@@ -31,12 +31,14 @@ function nombreFactura(f: Factura): string {
   return f.clienteNombre ?? "";
 }
 
-export function Historial() {
+export function Historial({ modo }: { modo: ModoFacturacion }) {
   const localId = useSession((s) => s.localId)!;
   const facturas = useData((s) => s.facturas.filter((f) => f.localId === localId));
   const removeFactura = useData((s) => s.removeFactura);
 
-  const [tab, setTab] = useState<TipoFactura>("mesa");
+  // Mesas y para llevar: solo la pestaña Mesas. Domicilios y más: todas menos Mesas.
+  const tabsFiltradas = modo === "mesas" ? TABS.filter((t) => t.tipo === "mesa") : TABS.filter((t) => t.tipo !== "mesa");
+  const [tab, setTab] = useState<TipoFactura>(modo === "mesas" ? "mesa" : "domicilio");
   const [q, setQ] = useState("");
   // Por defecto el historial solo muestra las facturas de hoy; el toggle
   // permite ver el histórico completo del local cuando se necesite buscar algo más viejo.
@@ -77,7 +79,7 @@ export function Historial() {
       )}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          {TABS.map((t) => (
+          {tabsFiltradas.map((t) => (
             <button
               key={t.tipo}
               onClick={() => setTab(t.tipo)}

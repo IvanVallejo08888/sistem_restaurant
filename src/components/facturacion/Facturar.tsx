@@ -19,9 +19,11 @@ import {
   combosMixtoFavor, comboFavorIncluye, calcFavorMixto, tiposAjuste, calcularAjuste,
   esDomicilioLike, esRegaloLike, esReservaLike,
 } from "@/lib/factura";
-import { Factura, ItemFactura, MetodoPago, MedioTransferencia, TipoAjuste, TipoFactura, TipoMixtoFavor } from "@/types";
+import { Factura, ItemFactura, MetodoPago, MedioTransferencia, ModoFacturacion, TipoAjuste, TipoFactura, TipoMixtoFavor } from "@/types";
 
-export function Facturar() {
+export function Facturar({ modo }: { modo: ModoFacturacion }) {
+  // Mesas y para llevar: solo se factura como Mesa. Domicilios y más: todo excepto Mesa.
+  const mostrarCard = (id: TipoFactura) => (modo === "mesas" ? id === "mesa" : id !== "mesa");
   const localId = useSession((s) => s.localId)!;
   const mesas = useData((s) => s.mesas.filter((m) => m.localId === localId));
   const addFactura = useData((s) => s.addFactura);
@@ -355,68 +357,82 @@ export function Facturar() {
         {error && <ErrorBanner mensaje={error} />}
         <h2 className="mb-6 font-display text-2xl font-semibold text-cocoa">¿Qué deseas facturar?</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <button
-            onClick={() => setTipo("mesa")}
-            className="group rounded-xl2 border border-sand bg-gradient-to-br from-mint/10 to-mint/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
-          >
-            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-mint shadow-card"><Armchair size={28} /></div>
-            <p className="font-display text-xl font-semibold text-cocoa">Mesa</p>
-            <p className="text-sm text-cocoa/60">Consumo en el local</p>
-          </button>
-          <button
-            onClick={() => setTipo("domicilio")}
-            className="group rounded-xl2 border border-sand bg-gradient-to-br from-raspberry/10 to-raspberry-light/40 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
-          >
-            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-raspberry shadow-card"><Bike size={28} /></div>
-            <p className="font-display text-xl font-semibold text-cocoa">Domicilio</p>
-            <p className="text-sm text-cocoa/60">Entrega a domicilio</p>
-          </button>
-          <button
-            onClick={() => setTipo("regalo")}
-            className="group rounded-xl2 border border-sand bg-gradient-to-br from-amber-400/10 to-amber-300/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
-          >
-            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-amber-600 shadow-card"><Gift size={28} /></div>
-            <p className="font-display text-xl font-semibold text-cocoa">Regalo</p>
-            <p className="text-sm text-cocoa/60">Entrega de regalo</p>
-          </button>
-          <button
-            onClick={() => setTipo("favor")}
-            className="group rounded-xl2 border border-sand bg-gradient-to-br from-pistachio/20 to-pistachio/40 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
-          >
-            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-cocoa shadow-card"><Mail size={28} /></div>
-            <p className="font-display text-xl font-semibold text-cocoa">Favor</p>
-            <p className="text-sm text-cocoa/60">Pedido especial</p>
-          </button>
-          <button
-            onClick={() => setTipo("reserva-domicilio")}
-            className="group rounded-xl2 border border-sand bg-gradient-to-br from-raspberry/5 to-raspberry-light/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
-          >
-            <div className="mb-4 flex h-14 w-14 items-center justify-center gap-0.5 rounded-2xl bg-white text-raspberry-dark shadow-card">
-              <CalendarClock size={22} /><Bike size={18} />
-            </div>
-            <p className="font-display text-xl font-semibold text-cocoa">Reserva Domicilio</p>
-            <p className="text-sm text-cocoa/60">Con fecha y hora</p>
-          </button>
-          <button
-            onClick={() => setTipo("reserva-mesa")}
-            className="group rounded-xl2 border border-sand bg-gradient-to-br from-mint/5 to-pistachio/25 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
-          >
-            <div className="mb-4 flex h-14 w-14 items-center justify-center gap-0.5 rounded-2xl bg-white text-mint shadow-card">
-              <CalendarClock size={22} /><Armchair size={18} />
-            </div>
-            <p className="font-display text-xl font-semibold text-cocoa">Reserva Mesa</p>
-            <p className="text-sm text-cocoa/60">Con fecha y hora</p>
-          </button>
-          <button
-            onClick={() => setTipo("reserva-regalo")}
-            className="group rounded-xl2 border border-sand bg-gradient-to-br from-violet-400/10 to-violet-300/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
-          >
-            <div className="mb-4 flex h-14 w-14 items-center justify-center gap-0.5 rounded-2xl bg-white text-violet-600 shadow-card">
-              <CalendarClock size={22} /><Gift size={18} />
-            </div>
-            <p className="font-display text-xl font-semibold text-cocoa">Reserva Regalo</p>
-            <p className="text-sm text-cocoa/60">Entrega de regalo programada</p>
-          </button>
+          {mostrarCard("mesa") && (
+            <button
+              onClick={() => setTipo("mesa")}
+              className="group rounded-xl2 border border-sand bg-gradient-to-br from-mint/10 to-mint/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
+            >
+              <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-mint shadow-card"><Armchair size={28} /></div>
+              <p className="font-display text-xl font-semibold text-cocoa">Mesa</p>
+              <p className="text-sm text-cocoa/60">Consumo en el local</p>
+            </button>
+          )}
+          {mostrarCard("domicilio") && (
+            <button
+              onClick={() => setTipo("domicilio")}
+              className="group rounded-xl2 border border-sand bg-gradient-to-br from-raspberry/10 to-raspberry-light/40 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
+            >
+              <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-raspberry shadow-card"><Bike size={28} /></div>
+              <p className="font-display text-xl font-semibold text-cocoa">Domicilio</p>
+              <p className="text-sm text-cocoa/60">Entrega a domicilio</p>
+            </button>
+          )}
+          {mostrarCard("regalo") && (
+            <button
+              onClick={() => setTipo("regalo")}
+              className="group rounded-xl2 border border-sand bg-gradient-to-br from-amber-400/10 to-amber-300/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
+            >
+              <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-amber-600 shadow-card"><Gift size={28} /></div>
+              <p className="font-display text-xl font-semibold text-cocoa">Regalo</p>
+              <p className="text-sm text-cocoa/60">Entrega de regalo</p>
+            </button>
+          )}
+          {mostrarCard("favor") && (
+            <button
+              onClick={() => setTipo("favor")}
+              className="group rounded-xl2 border border-sand bg-gradient-to-br from-pistachio/20 to-pistachio/40 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
+            >
+              <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white text-cocoa shadow-card"><Mail size={28} /></div>
+              <p className="font-display text-xl font-semibold text-cocoa">Favor</p>
+              <p className="text-sm text-cocoa/60">Pedido especial</p>
+            </button>
+          )}
+          {mostrarCard("reserva-domicilio") && (
+            <button
+              onClick={() => setTipo("reserva-domicilio")}
+              className="group rounded-xl2 border border-sand bg-gradient-to-br from-raspberry/5 to-raspberry-light/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
+            >
+              <div className="mb-4 flex h-14 w-14 items-center justify-center gap-0.5 rounded-2xl bg-white text-raspberry-dark shadow-card">
+                <CalendarClock size={22} /><Bike size={18} />
+              </div>
+              <p className="font-display text-xl font-semibold text-cocoa">Reserva Domicilio</p>
+              <p className="text-sm text-cocoa/60">Con fecha y hora</p>
+            </button>
+          )}
+          {mostrarCard("reserva-mesa") && (
+            <button
+              onClick={() => setTipo("reserva-mesa")}
+              className="group rounded-xl2 border border-sand bg-gradient-to-br from-mint/5 to-pistachio/25 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
+            >
+              <div className="mb-4 flex h-14 w-14 items-center justify-center gap-0.5 rounded-2xl bg-white text-mint shadow-card">
+                <CalendarClock size={22} /><Armchair size={18} />
+              </div>
+              <p className="font-display text-xl font-semibold text-cocoa">Reserva Mesa</p>
+              <p className="text-sm text-cocoa/60">Con fecha y hora</p>
+            </button>
+          )}
+          {mostrarCard("reserva-regalo") && (
+            <button
+              onClick={() => setTipo("reserva-regalo")}
+              className="group rounded-xl2 border border-sand bg-gradient-to-br from-violet-400/10 to-violet-300/30 p-8 text-left transition hover:-translate-y-1 hover:shadow-soft"
+            >
+              <div className="mb-4 flex h-14 w-14 items-center justify-center gap-0.5 rounded-2xl bg-white text-violet-600 shadow-card">
+                <CalendarClock size={22} /><Gift size={18} />
+              </div>
+              <p className="font-display text-xl font-semibold text-cocoa">Reserva Regalo</p>
+              <p className="text-sm text-cocoa/60">Entrega de regalo programada</p>
+            </button>
+          )}
         </div>
       </div>
     );
