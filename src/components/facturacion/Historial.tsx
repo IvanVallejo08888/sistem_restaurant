@@ -31,6 +31,50 @@ function nombreFactura(f: Factura): string {
   return f.clienteNombre ?? "";
 }
 
+// Línea de título de cada tarjeta del historial: varía según el tipo de
+// factura. Mesa/Reserva Mesa no se mencionan en el cambio solicitado, así
+// que mantienen el formato anterior (folio · nombre) a través del "default".
+function tituloHistorial(f: Factura): string {
+  switch (f.tipo) {
+    case "domicilio":
+    case "reserva-domicilio": {
+      const partes = [f.barrio, f.clienteWhatsapp].filter(Boolean);
+      return partes.length ? partes.join(" · ") : `${folio(f)} · ${nombreFactura(f)}`;
+    }
+    case "regalo":
+    case "reserva-regalo": {
+      const partes = [f.contactoQuienEnvia, f.barrio].filter(Boolean);
+      return partes.length ? partes.join(" · ") : `${folio(f)} · ${nombreFactura(f)}`;
+    }
+    case "favor":
+      return `FAVOR${f.nombreFavor ? ` · ${f.nombreFavor}` : ""}`;
+    default:
+      return `${folio(f)} · ${nombreFactura(f)}`;
+  }
+}
+
+// Búsqueda en tiempo real: el dato contra el que se compara cambia según el
+// tipo de factura. Mesa/Reserva Mesa conservan el criterio anterior
+// (folio, nombre y barrio) a través del "default".
+function coincideBusqueda(f: Factura, nq: string): boolean {
+  switch (f.tipo) {
+    case "domicilio":
+    case "reserva-domicilio":
+      return normalize(f.clienteWhatsapp ?? "").includes(nq);
+    case "regalo":
+    case "reserva-regalo":
+      return normalize(f.contactoQuienEnvia ?? "").includes(nq);
+    case "favor":
+      return normalize(f.nombreFavor ?? "").includes(nq);
+    default:
+      return (
+        normalize(folio(f)).includes(nq) ||
+        normalize(nombreFactura(f)).includes(nq) ||
+        normalize(f.barrio ?? "").includes(nq)
+      );
+  }
+}
+
 export function Historial({ modo }: { modo: ModoFacturacion }) {
   const localId = useSession((s) => s.localId)!;
   const facturas = useData((s) => s.facturas.filter((f) => f.localId === localId));
@@ -57,18 +101,20 @@ export function Historial({ modo }: { modo: ModoFacturacion }) {
     }
   };
 
+  // Sin búsqueda: se respeta la pestaña activa (igual que antes).
+  // Con búsqueda: se ignora la pestaña y se busca entre todos los tipos
+  // visibles en este modo (Domicilios y más, o solo Mesas), usando el dato
+  // correcto según el tipo de cada factura (ver coincideBusqueda).
   const lista = useMemo(() => {
-    const base = facturas
-      .filter((f) => f.tipo === tab && (!soloHoy || esDeHoy(f.creadoEn)))
-      .sort((a, b) => +new Date(b.creadoEn) - +new Date(a.creadoEn));
-    if (!q) return base;
-    const nq = normalize(q);
-    return base.filter((f) =>
-      normalize(folio(f)).includes(nq) ||
-      normalize(nombreFactura(f)).includes(nq) ||
-      normalize(f.barrio || "").includes(nq)
+    const tiposPermitidos = new Set(tabsFiltradas.map((t) => t.tipo));
+    const candidatas = facturas.filter(
+      (f) => tiposPermitidos.has(f.tipo) && (!soloHoy || esDeHoy(f.creadoEn))
     );
-  }, [facturas, tab, q, soloHoy]);
+    const filtradas = q
+      ? candidatas.filter((f) => coincideBusqueda(f, normalize(q)))
+      : candidatas.filter((f) => f.tipo === tab);
+    return filtradas.sort((a, b) => +new Date(b.creadoEn) - +new Date(a.creadoEn));
+  }, [facturas, tab, q, soloHoy, tabsFiltradas]);
 
   return (
     <div>
@@ -127,7 +173,7 @@ export function Historial({ modo }: { modo: ModoFacturacion }) {
             <Card key={f.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
                 <p className="font-bold text-cocoa">
-                  {folio(f)} · {nombreFactura(f)}
+                  {tituloHistorial(f)}
                 </p>
                 <p className="text-xs text-cocoa/60">
                   {formatHora12(f.creadoEn)} · {labelMetodo(f.metodoPago)} · {f.items.length} ítem(s)
