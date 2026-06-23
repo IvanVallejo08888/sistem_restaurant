@@ -3,10 +3,10 @@ import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { Share2, FileText, Loader2, MessageCircle } from "lucide-react";
 import { Factura } from "@/types";
-import { folio } from "@/lib/factura";
+import { folio, esRegaloLike } from "@/lib/factura";
 import { generarFacturaPDF } from "@/lib/generarFacturaPDF";
 import { useData } from "@/store/dataStore";
-import { formatCOP, linkWhatsapp } from "@/lib/utils";
+import { linkWhatsapp } from "@/lib/utils";
 import { FacturaView } from "./FacturaView";
 import { Button } from "@/components/ui/Button";
 
@@ -93,13 +93,55 @@ export function CompartirFactura({
   // Si no hay domiciliario asignado o no tiene WhatsApp registrado, el botón
   // queda deshabilitado en vez de romper o intentar abrir un chat inválido.
   const whatsappDomiciliario = domiciliarioAsignado?.whatsapp;
-  const compartirADomiciliario = () => {
+
+  // Mensaje de texto según el tipo de pedido: "favor" no lleva texto (solo
+  // la imagen), "regalo"/"reserva-regalo" usan los datos de quien recibe
+  // (mismos campos que domicilio: clienteNombre/clienteWhatsapp, ver
+  // esDomicilioLike en lib/factura.ts), y el resto (domicilio/reserva-
+  // domicilio) usa los datos del cliente.
+  const mensajeParaDomiciliario = (): string => {
+    if (factura.tipo === "favor") return "";
+    if (esRegaloLike(factura.tipo)) {
+      return (
+        `Entrega de regalo\n` +
+        `Recibe: ${factura.clienteNombre || "-"}\n` +
+        `WhatsApp: ${factura.clienteWhatsapp || "-"}`
+      );
+    }
+    return (
+      `Cliente: ${factura.clienteNombre || "-"}\n` +
+      `Dirección: ${factura.direccion || "-"}\n` +
+      `Barrio: ${factura.barrio || "-"}\n` +
+      `Teléfono: ${factura.clienteWhatsapp || "-"}`
+    );
+  };
+
+  // WhatsApp solo puede adjuntar la imagen vía Web Share API (un link wa.me
+  // únicamente manda texto). En móvil se comparte PNG + texto con
+  // navigator.share; en escritorio (sin soporte de archivos) se descarga el
+  // PNG y se abre wa.me con el texto para que el usuario adjunte la imagen.
+  const compartirADomiciliario = async () => {
     if (!whatsappDomiciliario) return;
-    const mensaje =
-      `Hola ${domiciliarioAsignado!.nombreCompleto}, tienes un domicilio asignado. ` +
-      `Factura ${folio(factura)} - Cliente: ${factura.clienteNombre || "-"} - ` +
-      `Dirección: ${factura.direccion || "-"} - Total: ${formatCOP(factura.total)}`;
-    window.open(linkWhatsapp(whatsappDomiciliario, mensaje), "_blank", "noopener,noreferrer");
+    setBusy(true);
+    try {
+      const blob = await generarPng();
+      if (!blob) return;
+      const file = new File([blob], `factura-${folio(factura)}.png`, { type: "image/png" });
+      const mensaje = mensajeParaDomiciliario();
+
+      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+      if (nav.share && nav.canShare && nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], text: mensaje || undefined });
+      } else {
+        await descargarPng();
+        const url = mensaje ? linkWhatsapp(whatsappDomiciliario, mensaje) : linkWhatsapp(whatsappDomiciliario);
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+    } catch (e) {
+      console.error("No se pudo compartir la factura al domiciliario:", e);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -123,7 +165,7 @@ export function CompartirFactura({
         <Button
           className="mt-3 w-full !bg-[#25D366] !text-white hover:!bg-[#1ebe5d]"
           onClick={compartirADomiciliario}
-          disabled={!whatsappDomiciliario}
+          disabled={!whatsappDomiciliario || busy || generandoPDF}
           title={whatsappDomiciliario ? undefined : "Sin domiciliario asignado"}
         >
           <MessageCircle size={16} /> Compartir a domiciliario
