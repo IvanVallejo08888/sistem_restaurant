@@ -1,17 +1,13 @@
 "use client";
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Pencil, Trash2, Bike, Mail, Phone } from "lucide-react";
 import { useData } from "@/store/dataStore";
-import { domiciliarioSchema, DomiciliarioForm } from "@/schemas";
+import { DomiciliarioForm } from "@/schemas";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Modal } from "@/components/ui/Modal";
 import { Confirm } from "@/components/ui/Confirm";
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
-import { PhotoInput } from "@/components/ui/PhotoInput";
+import { DomiciliarioFormModal } from "@/components/domiciliarios/DomiciliarioFormModal";
 import { Domiciliario } from "@/types";
 
 export function DomiciliariosPanel({ localId }: { localId: string }) {
@@ -19,9 +15,6 @@ export function DomiciliariosPanel({ localId }: { localId: string }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Domiciliario | null>(null);
   const [borrar, setBorrar] = useState<Domiciliario | null>(null);
-  const [foto, setFoto] = useState("");
-
-  const form = useForm<DomiciliarioForm>({ resolver: zodResolver(domiciliarioSchema) });
 
   const lista = useMemo(
     () => domiciliarios.filter((d) => d.localId === localId),
@@ -29,19 +22,16 @@ export function DomiciliariosPanel({ localId }: { localId: string }) {
   );
 
   const abrirNuevo = () => {
-    setEditing(null); setFoto("");
-    form.reset({ nombreCompleto: "", correo: "", whatsapp: "", identificacion: "", fotoUrl: "" });
+    setEditing(null);
     setOpen(true);
   };
   const abrirEditar = (d: Domiciliario) => {
-    setEditing(d); setFoto(d.fotoUrl);
-    form.reset({ nombreCompleto: d.nombreCompleto, correo: d.correo, whatsapp: d.whatsapp, identificacion: d.identificacion, fotoUrl: d.fotoUrl });
+    setEditing(d);
     setOpen(true);
   };
   const onSubmit = (d: DomiciliarioForm) => {
-    const payload = { ...d, fotoUrl: foto };
-    if (editing) updateDomiciliario(editing.id, payload);
-    else addDomiciliario({ ...payload, localId });
+    if (editing) updateDomiciliario(editing.id, d);
+    else addDomiciliario({ ...d, localId });
     setOpen(false);
   };
 
@@ -85,25 +75,12 @@ export function DomiciliariosPanel({ localId }: { localId: string }) {
         </div>
       )}
 
-      <Modal
+      <DomiciliarioFormModal
         open={open}
         onClose={() => setOpen(false)}
-        title={editing ? "Editar domiciliario" : "Nuevo domiciliario"}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={form.handleSubmit(onSubmit)}>Guardar</Button>
-          </>
-        }
-      >
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <PhotoInput value={foto} onChange={setFoto} />
-          <Input label="Nombre completo" {...form.register("nombreCompleto")} error={form.formState.errors.nombreCompleto?.message} />
-          <Input label="Correo" type="email" {...form.register("correo")} error={form.formState.errors.correo?.message} />
-          <Input label="WhatsApp" {...form.register("whatsapp")} error={form.formState.errors.whatsapp?.message} />
-          <Input label="Identificación" {...form.register("identificacion")} error={form.formState.errors.identificacion?.message} />
-        </form>
-      </Modal>
+        onSubmit={onSubmit}
+        editing={editing}
+      />
 
       <Confirm
         open={!!borrar}

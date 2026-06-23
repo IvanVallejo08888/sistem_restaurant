@@ -24,6 +24,9 @@ export type Producto = {
   creadoEn: string;
 };
 
+export const TIPOS_SANGRE = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+export type TipoSangre = typeof TIPOS_SANGRE[number];
+
 export type Domiciliario = {
   id: ID;
   localId: ID;
@@ -32,6 +35,9 @@ export type Domiciliario = {
   whatsapp: string;
   identificacion: string;
   fotoUrl: string; // dataURL o URL
+  // Opcional para mantener compatibilidad con domiciliarios ya guardados
+  // que no tienen este dato.
+  tipoSangre?: TipoSangre;
   creadoEn: string;
 };
 

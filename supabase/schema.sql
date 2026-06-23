@@ -40,6 +40,8 @@ create table if not exists domiciliarios (
   whatsapp        text not null,
   identificacion  text not null,
   foto_url        text not null default '',
+  -- 'A+'|'A-'|'B+'|'B-'|'AB+'|'AB-'|'O+'|'O-'; opcional, la validación ocurre en la app
+  tipo_sangre     text,
   creado_en       timestamptz not null default now()
 );
 
@@ -123,6 +125,7 @@ alter table facturas enable row level security;
 -- Migraciones para tablas pre-existentes (ejecutar solo si la tabla ya existía)
 alter table locales add column if not exists deleted_at timestamptz;
 alter table productos add column if not exists categoria text not null default 'heladeria';
+alter table domiciliarios add column if not exists tipo_sangre text;
 
 alter table facturas add column if not exists fecha_programada date;
 alter table facturas add column if not exists hora_reserva text;

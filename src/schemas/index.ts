@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TIPOS_SANGRE } from "@/types";
 
 export const localSchema = z.object({
   nombre: z.string().min(2, "Mínimo 2 caracteres"),
@@ -23,6 +24,7 @@ export const domiciliarioSchema = z.object({
   whatsapp: z.string().min(7, "WhatsApp inválido"),
   identificacion: z.string().min(4, "Identificación inválida"),
   fotoUrl: z.string().optional().default(""),
+  tipoSangre: z.enum(TIPOS_SANGRE).optional(),
 });
 export type DomiciliarioForm = z.infer<typeof domiciliarioSchema>;
 

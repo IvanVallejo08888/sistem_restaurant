@@ -76,6 +76,7 @@ export const rowToDomiciliario = (r: any): Domiciliario => ({
   whatsapp: r.whatsapp,
   identificacion: r.identificacion,
   fotoUrl: r.foto_url,
+  tipoSangre: r.tipo_sangre ?? undefined,
   creadoEn: r.creado_en,
 });
 
@@ -87,6 +88,7 @@ export const domiciliarioToRow = (d: Domiciliario) => ({
   whatsapp: d.whatsapp,
   identificacion: d.identificacion,
   foto_url: d.fotoUrl,
+  tipo_sangre: d.tipoSangre ?? null,
   creado_en: d.creadoEn,
 });
 
@@ -98,6 +100,7 @@ export const domiciliarioPatchToRow = (d: Partial<Domiciliario>) => {
   if (d.whatsapp !== undefined) row.whatsapp = d.whatsapp;
   if (d.identificacion !== undefined) row.identificacion = d.identificacion;
   if (d.fotoUrl !== undefined) row.foto_url = d.fotoUrl;
+  if (d.tipoSangre !== undefined) row.tipo_sangre = d.tipoSangre;
   return row;
 };
 
