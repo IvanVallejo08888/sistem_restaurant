@@ -32,7 +32,10 @@ export function Facturar({ modo }: { modo: ModoFacturacion }) {
   const hoy = now().slice(0, 10);
 
   // ── tipo elegido ──────────────────────────────────────────────────────
-  const [tipo, setTipo] = useState<TipoFactura | null>(null);
+  // Mesas y para llevar: la única tarjeta posible es "Mesa" (ver mostrarCard),
+  // así que se preselecciona para evitar el paso intermedio redundante de
+  // tener que pulsarla otra vez dentro de esta pantalla.
+  const [tipo, setTipo] = useState<TipoFactura | null>(modo === "mesas" ? "mesa" : null);
 
   // ── estado compartido mesa / domicilio / reserva-* ───────────────────
   const [mesaId, setMesaId] = useState("");
