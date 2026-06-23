@@ -7,6 +7,8 @@ import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { Rol } from "@/types";
 
+// El fallback "admin123" solo aplica si NEXT_PUBLIC_ADMIN_PASSWORD no está
+// configurada en el entorno (ver Vercel > Settings > Environments).
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123";
 
 // Compuerta de acceso. Admin usa contraseña global; los demás roles
