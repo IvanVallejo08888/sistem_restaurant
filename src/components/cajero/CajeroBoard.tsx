@@ -217,11 +217,28 @@ export function CajeroBoard() {
     setBaseCaja(v);
     localStorage.setItem(claveBaseCaja, String(v));
   };
-  const domiciliariosCuadreTotal = conActividad.reduce(
-    (acc, d) => acc + cuadreDomiciliario(delDia.filter((f) => f.domiciliarioId === d.id)).efectivoAEntregar,
-    0
-  );
-  const efectivoNeto = baseCaja + mesasStats.efectivo + domiciliariosCuadreTotal;
+  // Cuadre de cada domiciliario con actividad hoy: SOLO LECTURA del resultado
+  // que ya calcula cuadreDomiciliario (no se toca esa lógica). Se reutiliza
+  // tanto para el total como para el desglose del modal.
+  const domiciliariosConCuadre = conActividad.map((d) => ({
+    nombre: d.nombreCompleto,
+    valor: cuadreDomiciliario(delDia.filter((f) => f.domiciliarioId === d.id)).efectivoAEntregar,
+  }));
+  const domiciliariosCuadreTotal = domiciliariosConCuadre.reduce((acc, d) => acc + d.valor, 0);
+
+  // Gastos en efectivo de "Gastos empresariales del día" (Caja), excluyendo
+  // los de Favor: esos ya quedan cuadrados dentro del cuadre de domiciliario,
+  // así que contarlos aquí los restaría dos veces. No confundir con
+  // totalGastosEfectivo (usado en Utilidad del día, que sí los incluye).
+  const gastosEfectivoSinFavor = gastosHoy
+    .filter((g) => g.medioPago === "efectivo" && !g.descripcion.startsWith("FAVOR"))
+    .reduce((acc, g) => acc + g.valor, 0);
+
+  // Subtotal sin domiciliarios = lo mismo que "efectivo neto sin contar
+  // domiciliarios" del modal (restarle al neto el cuadre de domiciliarios
+  // da exactamente este mismo subtotal).
+  const subtotalSinDomiciliarios = baseCaja + mesasStats.efectivo - gastosEfectivoSinFavor;
+  const efectivoNeto = subtotalSinDomiciliarios + domiciliariosCuadreTotal;
 
   return (
     <div className="space-y-8">
@@ -255,7 +272,7 @@ export function CajeroBoard() {
         <Modal
           open={editandoBase}
           onClose={() => setEditandoBase(false)}
-          title="Base de caja del día"
+          title="Efectivo neto en caja"
           footer={
             <Button onClick={() => setEditandoBase(false)}>Guardar</Button>
           }
@@ -270,6 +287,56 @@ export function CajeroBoard() {
             value={baseCaja || ""}
             onChange={(e) => guardarBaseCaja(Number(e.target.value) || 0)}
           />
+
+          {/* Desglose — solo lectura */}
+          <div className="mt-5 border-t border-sand pt-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-cocoa/50">
+              Desglose del efectivo neto
+            </p>
+            <Fila label="Base de caja" value={baseCaja} />
+            <Fila label="Efectivo de mesas" value={mesasStats.efectivo} />
+            <Fila label="Gastos en efectivo (caja, sin favores)" value={-gastosEfectivoSinFavor} signo="auto" />
+            <div className="mt-1 flex items-center justify-between border-t border-sand pt-2 text-sm">
+              <span className="font-bold text-cocoa/80">Subtotal antes de domiciliarios</span>
+              <span className="font-display font-black text-cocoa">{formatCOP(subtotalSinDomiciliarios)}</span>
+            </div>
+          </div>
+
+          {/* Cuadre por domiciliario — solo lectura */}
+          <div className="mt-5 border-t border-sand pt-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-cocoa/50">
+              Cuadre por domiciliario
+            </p>
+            {domiciliariosConCuadre.length === 0 ? (
+              <p className="text-sm text-cocoa/50">Sin domiciliarios con actividad hoy.</p>
+            ) : (
+              <>
+                {domiciliariosConCuadre.map((d) => (
+                  <Fila key={d.nombre} label={d.nombre} value={d.valor} signo="auto" />
+                ))}
+                <div className="mt-1 flex items-center justify-between border-t border-sand pt-2 text-sm">
+                  <span className="font-bold text-cocoa/80">Total cuadres de domiciliarios</span>
+                  <span className={cx(
+                    "font-display font-black",
+                    domiciliariosCuadreTotal >= 0 ? "text-emerald-600" : "text-red-500"
+                  )}>
+                    {domiciliariosCuadreTotal < 0 ? "−" : ""}{formatCOP(Math.abs(domiciliariosCuadreTotal))}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Efectivo neto sin contar domiciliarios — solo lectura */}
+          <div className="mt-5 border-t border-sand pt-4">
+            <Fila label="Efectivo neto sin contar domiciliarios" value={subtotalSinDomiciliarios} signo="auto" />
+          </div>
+
+          {/* Total final */}
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-raspberry-dark px-5 py-4 text-white">
+            <span className="flex items-center gap-2 font-bold"><Banknote size={18} /> Efectivo neto en caja</span>
+            <span className="font-display text-2xl font-black">{formatCOP(efectivoNeto)}</span>
+          </div>
         </Modal>
 
         {/* Fila de botones de detalle: Utilidad + 5 nuevos */}
