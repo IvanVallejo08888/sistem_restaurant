@@ -45,11 +45,11 @@ const TIPO_LABEL: Record<Exclude<TipoFactura, "favor">, string> = {
 
 // ── Sombras dinámicas por categoría ──────────────────────────────────────────
 const SHADOW_HELADERIA =
-  "0 0 0 3px rgba(59,130,246,0.45), 0 6px 20px rgba(59,130,246,0.2)";
+  "0 0 0 5px rgba(59,130,246,0.75), 0 10px 28px rgba(59,130,246,0.45)";
 const SHADOW_COMIDAS =
-  "0 0 0 3px rgba(251,146,60,0.45), 0 6px 20px rgba(251,146,60,0.2)";
+  "0 0 0 5px rgba(251,146,60,0.75), 0 10px 28px rgba(251,146,60,0.45)";
 const SHADOW_MIXTO =
-  "-4px 0 8px rgba(59,130,246,0.4), 4px 0 8px rgba(251,146,60,0.4), 0 4px 14px rgba(0,0,0,0.08)";
+  "-6px 0 14px rgba(59,130,246,0.65), 6px 0 14px rgba(251,146,60,0.65), 0 6px 18px rgba(0,0,0,0.15)";
 
 function calcularSombra(
   items: Factura["items"],
@@ -99,6 +99,19 @@ function CocinaCard({ factura }: { factura: Factura }) {
 
   const shadowStyle = calcularSombra(factura.items, productos);
   const esMesaTipo = factura.tipo === "mesa" || factura.tipo === "reserva-mesa";
+  // Domicilio / Reserva Domicilio: el dato grande pasa a ser el barrio (campo
+  // independiente del modelo, no se parsea de la dirección) y el folio (D-0002)
+  // se reubica como texto pequeño al pie de la tarjeta. Mesa / Reserva Mesa
+  // reciben el mismo tratamiento con el número de mesa. Regalo/Reserva Regalo
+  // no se tocan: siguen mostrando el folio en grande como antes.
+  const esDomicilioFolioAbajo = factura.tipo === "domicilio" || factura.tipo === "reserva-domicilio";
+  const folioAbajo = esMesaTipo || esDomicilioFolioAbajo;
+  const tituloGrande = esMesaTipo
+    ? factura.mesaNombre || folio(factura)
+    : esDomicilioFolioAbajo
+    ? factura.barrio || factura.clienteNombre || folio(factura)
+    : folio(factura);
+  const subtituloChico = esMesaTipo ? undefined : nombreFactura(factura);
   const tipoLabel = TIPO_LABEL[factura.tipo as Exclude<TipoFactura, "favor">] ?? factura.tipo;
 
   return (
@@ -109,15 +122,17 @@ function CocinaCard({ factura }: { factura: Factura }) {
       {/* ── Cabecera ───────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-display text-xl font-black text-cocoa">{folio(factura)}</p>
-          <p className="text-sm font-semibold text-cocoa/70">{nombreFactura(factura)}</p>
+          <p className="font-display text-2xl font-black text-cocoa">{tituloGrande}</p>
+          {subtituloChico && (
+            <p className="text-base font-semibold text-cocoa/70">{subtituloChico}</p>
+          )}
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="flex items-center gap-1 text-xs text-cocoa/50">
-            <Clock size={11} /> {formatHora12(factura.creadoEn)}
+          <span className="flex items-center gap-1 text-sm text-cocoa/50">
+            <Clock size={13} /> {formatHora12(factura.creadoEn)}
           </span>
           <span className={cx(
-            "rounded-full px-2 py-0.5 text-xs font-bold",
+            "rounded-full px-2 py-0.5 text-sm font-bold",
             esMesaTipo ? "bg-mint/20 text-cocoa" : "bg-raspberry-light text-raspberry-dark"
           )}>
             {tipoLabel}
@@ -127,16 +142,17 @@ function CocinaCard({ factura }: { factura: Factura }) {
 
       {/* ── Fecha reserva ─────────────────────────────────────────── */}
       {factura.fechaProgramada && (
-        <p className="flex items-center gap-1 text-xs font-bold text-raspberry-dark">
-          <CalendarClock size={12} />
+        <p className="flex items-center gap-1 text-sm font-bold text-raspberry-dark">
+          <CalendarClock size={14} />
           {factura.fechaProgramada}{factura.horaReserva ? ` · ${factura.horaReserva}` : ""}
         </p>
       )}
 
       {/* ── Dirección domicilio ───────────────────────────────────── */}
       {!esMesaTipo && factura.direccion && (
-        <p className="text-xs text-cocoa/60">
-          {factura.direccion}{factura.barrio ? ` · ${factura.barrio}` : ""}
+        <p className="text-sm text-cocoa/60">
+          {factura.direccion}
+          {!esDomicilioFolioAbajo && factura.barrio ? ` · ${factura.barrio}` : ""}
         </p>
       )}
 
@@ -149,29 +165,29 @@ function CocinaCard({ factura }: { factura: Factura }) {
             : "border-sand bg-sand/20"
         )}>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-sm font-bold text-blue-700">🍦 Heladería</p>
+            <p className="text-base font-bold text-blue-700">🍦 Heladería</p>
             <button
               onClick={() =>
                 updateFactura(factura.id, { heladeriaLista: !factura.heladeriaLista })
               }
               className={cx(
-                "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition",
+                "flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold transition",
                 factura.heladeriaLista
                   ? "bg-blue-500 text-white"
                   : "border border-blue-200 bg-white text-blue-600 hover:bg-blue-50"
               )}
             >
-              <Check size={11} />
+              <Check size={13} />
               {factura.heladeriaLista ? "Lista ✓" : "Marcar lista"}
             </button>
           </div>
           <div className="space-y-0.5">
             {itemsHeladeria.map((it, i) => (
-              <p key={i} className={cx("text-sm text-cocoa", it.nuevo && "font-bold text-raspberry-dark")}>
+              <p key={i} className={cx("text-base text-cocoa", it.nuevo && "font-bold text-raspberry-dark")}>
                 {it.cantidad}× {it.nombre}
-                {it.nuevo && <span className="ml-1 text-xs font-bold text-raspberry">(NUEVO)</span>}
+                {it.nuevo && <span className="ml-1 text-sm font-bold text-raspberry">(NUEVO)</span>}
                 {it.observacion && (
-                  <span className="ml-1 text-xs italic text-cocoa/60">— {it.observacion}</span>
+                  <span className="ml-1 text-sm italic text-cocoa/60">— {it.observacion}</span>
                 )}
               </p>
             ))}
@@ -188,29 +204,29 @@ function CocinaCard({ factura }: { factura: Factura }) {
             : "border-sand bg-sand/20"
         )}>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-sm font-bold text-orange-700">🍔 Comidas Rápidas</p>
+            <p className="text-base font-bold text-orange-700">🍔 Comidas Rápidas</p>
             <button
               onClick={() =>
                 updateFactura(factura.id, { comidasListas: !factura.comidasListas })
               }
               className={cx(
-                "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition",
+                "flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold transition",
                 factura.comidasListas
                   ? "bg-orange-500 text-white"
                   : "border border-orange-200 bg-white text-orange-600 hover:bg-orange-50"
               )}
             >
-              <Check size={11} />
+              <Check size={13} />
               {factura.comidasListas ? "Listas ✓" : "Marcar listas"}
             </button>
           </div>
           <div className="space-y-0.5">
             {itemsComidas.map((it, i) => (
-              <p key={i} className={cx("text-sm text-cocoa", it.nuevo && "font-bold text-raspberry-dark")}>
+              <p key={i} className={cx("text-base text-cocoa", it.nuevo && "font-bold text-raspberry-dark")}>
                 {it.cantidad}× {it.nombre}
-                {it.nuevo && <span className="ml-1 text-xs font-bold text-raspberry">(NUEVO)</span>}
+                {it.nuevo && <span className="ml-1 text-sm font-bold text-raspberry">(NUEVO)</span>}
                 {it.observacion && (
-                  <span className="ml-1 text-xs italic text-cocoa/60">— {it.observacion}</span>
+                  <span className="ml-1 text-sm italic text-cocoa/60">— {it.observacion}</span>
                 )}
               </p>
             ))}
@@ -222,10 +238,10 @@ function CocinaCard({ factura }: { factura: Factura }) {
       {itemsOtros.length > 0 && (
         <div className="space-y-0.5 rounded-xl border border-sand p-3">
           {itemsOtros.map((it, i) => (
-            <p key={i} className="text-sm text-cocoa/70">
+            <p key={i} className="text-base text-cocoa/70">
               {it.cantidad}× {it.nombre}
               {it.observacion && (
-                <span className="ml-1 text-xs italic text-cocoa/50">— {it.observacion}</span>
+                <span className="ml-1 text-sm italic text-cocoa/50">— {it.observacion}</span>
               )}
             </p>
           ))}
@@ -237,7 +253,7 @@ function CocinaCard({ factura }: { factura: Factura }) {
         <div className="flex flex-wrap gap-1.5">
           {tieneHeladeria && (
             <span className={cx(
-              "rounded-full px-2 py-0.5 text-xs font-semibold",
+              "rounded-full px-2 py-0.5 text-sm font-semibold",
               factura.heladeriaLista
                 ? "bg-blue-100 text-blue-700"
                 : "bg-sand text-cocoa/50"
@@ -247,7 +263,7 @@ function CocinaCard({ factura }: { factura: Factura }) {
           )}
           {tieneComidas && (
             <span className={cx(
-              "rounded-full px-2 py-0.5 text-xs font-semibold",
+              "rounded-full px-2 py-0.5 text-sm font-semibold",
               factura.comidasListas
                 ? "bg-orange-100 text-orange-700"
                 : "bg-sand text-cocoa/50"
@@ -258,13 +274,19 @@ function CocinaCard({ factura }: { factura: Factura }) {
         </div>
       )}
 
+      {/* ── Folio pequeño al pie (mesa/domicilio y sus reservas) ────── */}
+      {folioAbajo && (
+        <p className="text-xs text-cocoa/40">{folio(factura)}</p>
+      )}
+
       {/* ── Botón Despachar ────────────────────────────────────────── */}
       <Button
         className="mt-auto w-full"
+        size="lg"
         disabled={!puedeDespachar}
         onClick={() => updateFactura(factura.id, { estado: "listo" })}
       >
-        <Check size={16} />
+        <Check size={18} />
         {puedeDespachar ? "Despachar" : "Completar validaciones"}
       </Button>
     </div>
