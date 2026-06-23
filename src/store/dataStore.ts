@@ -42,7 +42,7 @@ type DataState = {
   addFactura: (d: Omit<Factura, "id" | "creadoEn" | "consecutivo">) => Promise<Factura>;
   updateFactura: (id: string, d: Partial<Factura>) => Promise<void>;
   removeFactura: (id: string) => Promise<void>;
-  asignarDomiciliario: (facturaId: string, domiciliarioId: string | null) => Promise<void>;
+  asignarDomiciliario: (facturaId: string, domiciliarioId: string | null) => Promise<Factura>;
   marcarServida: (facturaId: string, servida: boolean) => Promise<void>;
 
   addGasto: (d: Omit<Gasto, "id" | "creadoEn">) => Promise<void>;
@@ -167,6 +167,7 @@ export const useData = create<DataState>((set, get) => ({
         : { domiciliarioId, domiciliarioAsignadoEn: now(), estado: "completado", despachado: true };
     const up = await dataService.updateFactura(facturaId, patch);
     set((s) => ({ facturas: s.facturas.map((x) => (x.id === facturaId ? up : x)) }));
+    return up;
   },
   marcarServida: async (facturaId, servida) => {
     const up = await dataService.updateFactura(facturaId, { servida });

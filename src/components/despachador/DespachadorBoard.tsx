@@ -341,8 +341,12 @@ export function DespachadorBoard() {
                   const f = asignando;
                   setAsignando(null);
                   try {
-                    await asignarDomiciliario(f.id, d.id);
-                    setFacturaAsignada(f);
+                    // Usar la factura actualizada (con domiciliarioId ya
+                    // seteado), no el snapshot previo a la asignación: si no,
+                    // "Compartir a domiciliario" queda deshabilitado porque
+                    // no encuentra el domiciliario recién asignado.
+                    const actualizada = await asignarDomiciliario(f.id, d.id);
+                    setFacturaAsignada(actualizada);
                   } catch (e) {
                     console.error("No se pudo asignar el domiciliario:", e);
                   }
