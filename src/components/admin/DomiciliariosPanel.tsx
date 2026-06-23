@@ -1,25 +1,56 @@
 "use client";
-import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Bike, Mail, Phone } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { toPng } from "html-to-image";
+import { Plus, Pencil, Trash2, Bike, Mail, Phone, FileDown, Loader2 } from "lucide-react";
 import { useData } from "@/store/dataStore";
 import { DomiciliarioForm } from "@/schemas";
+import { normalize } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Confirm } from "@/components/ui/Confirm";
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
 import { DomiciliarioFormModal } from "@/components/domiciliarios/DomiciliarioFormModal";
+import { CarnetDomiciliario } from "@/components/domiciliarios/CarnetDomiciliario";
 import { Domiciliario } from "@/types";
 
 export function DomiciliariosPanel({ localId }: { localId: string }) {
   const { domiciliarios, addDomiciliario, updateDomiciliario, removeDomiciliario } = useData();
+  const nombreLocal = useData((s) => s.locales.find((l) => l.id === localId)?.nombre) ?? "";
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Domiciliario | null>(null);
   const [borrar, setBorrar] = useState<Domiciliario | null>(null);
+  // Un nodo de carnet oculto por domiciliario (fuera de pantalla, pero
+  // renderizado) para poder rasterizarlo con html-to-image sin esperar un
+  // re-render cuando se pulsa "Generar PDF".
+  const carnetRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [generandoPdfId, setGenerandoPdfId] = useState<string | null>(null);
 
   const lista = useMemo(
     () => domiciliarios.filter((d) => d.localId === localId),
     [domiciliarios, localId]
   );
+
+  const generarCarnetPDF = async (d: Domiciliario) => {
+    const nodo = carnetRefs.current[d.id];
+    if (!nodo) return;
+    setGenerandoPdfId(d.id);
+    try {
+      const dataUrl = await toPng(nodo, { pixelRatio: 2, backgroundColor: "#FFFBF4" });
+      const { default: JsPDF } = await import("jspdf");
+      // Mismo aspecto que el carnet (320x520 px) para que la imagen no se
+      // estire ni se deforme al insertarla en el PDF.
+      const anchoMm = 70;
+      const altoMm = anchoMm * (520 / 320);
+      const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: [anchoMm, altoMm] });
+      doc.addImage(dataUrl, "PNG", 0, 0, anchoMm, altoMm);
+      const slug = normalize(d.nombreCompleto).replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+      doc.save(`carnet_${slug || "domiciliario"}.pdf`);
+    } catch (e) {
+      console.error("No se pudo generar el carnet PDF:", e);
+    } finally {
+      setGenerandoPdfId(null);
+    }
+  };
 
   const abrirNuevo = () => {
     setEditing(null);
@@ -66,9 +97,20 @@ export function DomiciliariosPanel({ localId }: { localId: string }) {
                 <p className="flex items-center gap-2"><Mail size={14} /> {d.correo}</p>
                 <p className="flex items-center gap-2"><Phone size={14} /> {d.whatsapp}</p>
               </div>
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Button size="sm" variant="secondary" onClick={() => abrirEditar(d)}><Pencil size={14} /> Editar</Button>
+                <Button size="sm" variant="outline" onClick={() => generarCarnetPDF(d)} disabled={generandoPdfId === d.id}>
+                  {generandoPdfId === d.id ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+                  Generar PDF
+                </Button>
                 <Button size="sm" variant="danger" onClick={() => setBorrar(d)}><Trash2 size={14} /></Button>
+              </div>
+
+              {/* Carnet oculto (fuera de pantalla) usado solo para generar el PDF */}
+              <div style={{ position: "absolute", left: -9999, top: 0 }} aria-hidden>
+                <div ref={(el) => { carnetRefs.current[d.id] = el; }}>
+                  <CarnetDomiciliario domiciliario={d} nombreLocal={nombreLocal} />
+                </div>
               </div>
             </Card>
           ))}
