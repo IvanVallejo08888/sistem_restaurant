@@ -7,7 +7,7 @@ import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { formatHora12, now, cx } from "@/lib/utils";
 import { folio } from "@/lib/factura";
-import { playDing } from "@/lib/sound";
+import { playDing, playGuitarra, playPiano, playSaxofon } from "@/lib/sound";
 import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
 import { Factura, Producto, TipoFactura } from "@/types";
@@ -51,21 +51,61 @@ const SHADOW_COMIDAS =
 const SHADOW_MIXTO =
   "-6px 0 14px rgba(59,130,246,0.65), 6px 0 14px rgba(251,146,60,0.65), 0 6px 18px rgba(0,0,0,0.15)";
 
+// Fuente de verdad única para resolver las categorías de los productos de una
+// factura: la usan tanto las sombras de las tarjetas como el sonido de aviso.
+function categoriasDe(items: Factura["items"], productos: Producto[]): Set<string> {
+  return new Set(
+    items
+      .map((it) => productos.find((p) => p.id === it.productoId)?.categoria)
+      .filter(Boolean) as string[]
+  );
+}
+
 function calcularSombra(
   items: Factura["items"],
   productos: Producto[]
 ): string | undefined {
-  const cats = new Set(
-    items
-      .map((it) => productos.find((p) => p.id === it.productoId)?.categoria)
-      .filter(Boolean)
-  );
+  const cats = categoriasDe(items, productos);
   const h = cats.has("heladeria");
   const c = cats.has("comidas-rapidas");
   if (h && c) return SHADOW_MIXTO;
   if (h) return SHADOW_HELADERIA;
   if (c) return SHADOW_COMIDAS;
   return undefined;
+}
+
+// ── Sonido de aviso por categoría (independiente del tipo de factura) ───────
+type ClaseSonido = "heladeria" | "comidas" | "mixto" | "otro";
+
+// "otro" cubre tanto productos sin categoría como mezclas con una tercera
+// categoría distinta a heladería/comidas-rápidas; en esos casos se mantiene
+// el sonido original (playDing) como fallback.
+function clasificarParaSonido(items: Factura["items"], productos: Producto[]): ClaseSonido {
+  const cats = categoriasDe(items, productos);
+  const h = cats.has("heladeria");
+  const c = cats.has("comidas-rapidas");
+  const soloEstasDosCategorias =
+    cats.size > 0 && [...cats].every((cat) => cat === "heladeria" || cat === "comidas-rapidas");
+  if (!soloEstasDosCategorias) return "otro";
+  if (h && c) return "mixto";
+  if (h) return "heladeria";
+  return "comidas";
+}
+
+function reproducirSonidoFactura(items: Factura["items"], productos: Producto[]) {
+  switch (clasificarParaSonido(items, productos)) {
+    case "heladeria":
+      playGuitarra();
+      break;
+    case "comidas":
+      playPiano();
+      break;
+    case "mixto":
+      playSaxofon();
+      break;
+    default:
+      playDing();
+  }
 }
 
 function nombreFactura(f: Factura) {
@@ -297,6 +337,7 @@ function CocinaCard({ factura }: { factura: Factura }) {
 export function CocinaBoard() {
   const localId = useSession((s) => s.localId)!;
   const facturas = useData((s) => s.facturas);
+  const productos = useData((s) => s.productos);
 
   const [sonido, setSonido] = useState(true);
   const [tab, setTab] = useState<TabCocina>("domicilio");
@@ -324,7 +365,9 @@ export function CocinaBoard() {
 
   const activos = byTipo[tab];
 
-  // Detecta nuevas facturas y reproduce sonido
+  // Detecta nuevas facturas y reproduce el sonido correspondiente según la
+  // categoría de sus productos (guitarra/piano/saxofón/ding), sin importar
+  // el tipo de factura (domicilio, mesa, regalo, favor, reservas, etc.).
   const conocidas = useRef<Set<string> | null>(null);
   useEffect(() => {
     const ids = new Set(pendientes.map((f) => f.id));
@@ -332,11 +375,12 @@ export function CocinaBoard() {
       conocidas.current = ids;
       return;
     }
-    let nueva = false;
-    ids.forEach((id) => { if (!conocidas.current!.has(id)) nueva = true; });
-    if (nueva && sonido) playDing();
+    const nuevas = pendientes.filter((f) => !conocidas.current!.has(f.id));
+    if (nuevas.length > 0 && sonido) {
+      nuevas.forEach((f) => reproducirSonidoFactura(f.items, productos));
+    }
     conocidas.current = ids;
-  }, [pendientes, sonido]);
+  }, [pendientes, sonido, productos]);
 
   return (
     <div>
