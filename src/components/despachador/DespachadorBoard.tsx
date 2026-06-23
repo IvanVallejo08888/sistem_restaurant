@@ -8,25 +8,22 @@ import { useSession } from "@/store/sessionStore";
 import { formatHora12, formatCOP, cx } from "@/lib/utils";
 import { folio } from "@/lib/factura";
 import { esDeHoy } from "@/lib/reportes";
+import { calcularSombra, tituloFactura, agruparPorCategoria } from "@/lib/facturaVisual";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Empty } from "@/components/ui/Empty";
+import { CategoriaBlock } from "@/components/ui/CategoriaBlock";
 import { CompartirFactura } from "@/components/facturacion/CompartirFactura";
 import { esDomicilioLike, esRegaloLike } from "@/lib/factura";
 import { Factura } from "@/types";
 
 type Tab = "domicilios" | "mesas" | "domiciliarios";
 
-function nombreParaDespacho(f: Factura): string {
-  if (f.tipo === "favor") return f.nombreFavor ?? "Favor";
-  if (f.tipo === "mesa" || f.tipo === "reserva-mesa") return f.mesaNombre ?? "";
-  return f.clienteNombre ?? "";
-}
-
 export function DespachadorBoard() {
   const localId = useSession((s) => s.localId)!;
   const facturas = useData((s) => s.facturas);
+  const productos = useData((s) => s.productos);
   const domiciliarios = useData((s) => s.domiciliarios.filter((d) => d.localId === localId));
   const updateFactura = useData((s) => s.updateFactura);
   const marcarServida = useData((s) => s.marcarServida);
@@ -93,52 +90,92 @@ export function DespachadorBoard() {
           <Empty title="Sin domicilios por asignar" hint="Aparecerán cuando cocina los marque listos o al registrar un Favor." />
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {domiciliosPend.map((f) => (
-              <Card key={f.id} className="flex flex-col p-5">
-                <div className="flex items-start justify-between">
-                  <p className="font-display text-xl font-black text-cocoa">{folio(f)}</p>
-                  <div className="flex items-center gap-2">
-                    {f.tipo === "favor" && (
-                      <span className="rounded-full bg-pistachio/30 px-2 py-0.5 text-xs font-bold text-cocoa">
-                        <Mail size={10} className="inline" /> Favor
+            {domiciliosPend.map((f) => {
+              const { grande, chico, folioAbajo } = tituloFactura(f);
+              const esDomicilioFolioAbajo = f.tipo === "domicilio" || f.tipo === "reserva-domicilio";
+              const { itemsHeladeria, itemsComidas, itemsOtros } = agruparPorCategoria(f.items, productos);
+              const tieneHeladeria = itemsHeladeria.length > 0;
+              const tieneComidas = itemsComidas.length > 0;
+              const shadowStyle = calcularSombra(f.items, productos);
+              return (
+                <Card
+                  key={f.id}
+                  className="flex flex-col gap-3 p-5 transition-shadow"
+                  style={shadowStyle ? { boxShadow: shadowStyle } : undefined}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-display text-2xl font-black text-cocoa">{grande}</p>
+                      {chico && <p className="text-base font-semibold text-cocoa/70">{chico}</p>}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {f.tipo === "favor" && (
+                        <span className="rounded-full bg-pistachio/30 px-2 py-0.5 text-sm font-bold text-cocoa">
+                          <Mail size={12} className="inline" /> Favor
+                        </span>
+                      )}
+                      {esRegaloLike(f.tipo) && (
+                        <span className="rounded-full bg-amber-200 px-2 py-0.5 text-sm font-bold text-amber-900">
+                          <Gift size={12} className="inline" /> Regalo
+                        </span>
+                      )}
+                      {(f.tipo === "reserva-domicilio" || f.tipo === "reserva-regalo") && (
+                        <span className="rounded-full bg-raspberry-light px-2 py-0.5 text-sm font-bold text-raspberry-dark">
+                          <CalendarClock size={12} className="inline" /> Reserva
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1 text-sm font-bold text-cocoa/60">
+                        <Clock size={14} /> {formatHora12(f.creadoEn)}
                       </span>
-                    )}
-                    {esRegaloLike(f.tipo) && (
-                      <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">
-                        <Gift size={10} className="inline" /> Regalo
-                      </span>
-                    )}
-                    {(f.tipo === "reserva-domicilio" || f.tipo === "reserva-regalo") && (
-                      <span className="rounded-full bg-raspberry-light px-2 py-0.5 text-xs font-bold text-raspberry-dark">
-                        <CalendarClock size={10} className="inline" /> Reserva
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1 text-xs font-bold text-cocoa/60">
-                      <Clock size={13} /> {formatHora12(f.creadoEn)}
-                    </span>
+                    </div>
                   </div>
-                </div>
-                <p className="mt-1 font-semibold text-cocoa">{nombreParaDespacho(f)}</p>
-                {f.tipo !== "favor" && (
-                  <p className="text-sm text-cocoa/60">{f.direccion}{f.barrio ? ` · ${f.barrio}` : ""}</p>
-                )}
-                {f.tipo === "favor" && f.descuentoDomiciliario && f.descuentoDomiciliario > 0 && (
-                  <p className="mt-1 text-xs font-semibold text-raspberry-dark">
-                    Descuento domiciliario: {formatCOP(f.descuentoDomiciliario)}
-                  </p>
-                )}
-                {f.fechaProgramada && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-cocoa/60">
-                    <CalendarClock size={11} /> {f.fechaProgramada}{f.horaReserva ? ` · ${f.horaReserva}` : ""}
-                  </p>
-                )}
-                <p className="mt-2 text-sm text-cocoa/70">{formatCOP(f.total)}</p>
-                <div className="mt-4 flex gap-2">
-                  <Button size="sm" variant="secondary" className="flex-1" onClick={() => setDetalle(f)}>Detalle</Button>
-                  <Button size="sm" className="flex-1" onClick={() => setAsignando(f)}><Plus size={15} /> Asignar</Button>
-                </div>
-              </Card>
-            ))}
+
+                  {f.tipo !== "favor" && f.direccion && (
+                    <p className="text-sm text-cocoa/60">
+                      {f.direccion}
+                      {!esDomicilioFolioAbajo && f.barrio ? ` · ${f.barrio}` : ""}
+                    </p>
+                  )}
+                  {f.tipo === "favor" && f.descuentoDomiciliario && f.descuentoDomiciliario > 0 && (
+                    <p className="text-sm font-semibold text-raspberry-dark">
+                      Descuento domiciliario: {formatCOP(f.descuentoDomiciliario)}
+                    </p>
+                  )}
+                  {f.fechaProgramada && (
+                    <p className="flex items-center gap-1 text-sm text-cocoa/60">
+                      <CalendarClock size={13} /> {f.fechaProgramada}{f.horaReserva ? ` · ${f.horaReserva}` : ""}
+                    </p>
+                  )}
+
+                  {tieneHeladeria && (
+                    <CategoriaBlock tema="heladeria" items={itemsHeladeria} lista />
+                  )}
+                  {tieneComidas && (
+                    <CategoriaBlock tema="comidas" items={itemsComidas} lista />
+                  )}
+                  {itemsOtros.length > 0 && (
+                    <div className="space-y-0.5 rounded-xl border border-sand p-3">
+                      {itemsOtros.map((it, i) => (
+                        <p key={i} className="text-base text-cocoa/70">
+                          {it.cantidad}× {it.nombre}
+                          {it.observacion && (
+                            <span className="ml-1 text-sm italic text-cocoa/50">— {it.observacion}</span>
+                          )}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  {folioAbajo && <p className="text-xs text-cocoa/40">{folio(f)}</p>}
+
+                  <p className="text-base font-black text-cocoa">{formatCOP(f.total)}</p>
+                  <div className="mt-auto flex gap-2">
+                    <Button size="sm" variant="secondary" className="flex-1" onClick={() => setDetalle(f)}>Detalle</Button>
+                    <Button size="sm" className="flex-1" onClick={() => setAsignando(f)}><Plus size={15} /> Asignar</Button>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         )
       )}
@@ -151,34 +188,70 @@ export function DespachadorBoard() {
               <Empty title="Sin mesas por servir" />
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {mesasPendientes.map((f) => (
-                  <Card key={f.id} className="flex flex-col p-5">
-                    <div className="flex items-start justify-between">
-                      <p className="font-display text-xl font-black text-cocoa">{folio(f)}</p>
-                      <div className="flex items-center gap-2">
-                        {f.tipo === "reserva-mesa" && (
-                          <span className="rounded-full bg-mint/20 px-2 py-0.5 text-xs font-bold text-cocoa">
-                            <CalendarClock size={10} className="inline" /> Reserva
+                {mesasPendientes.map((f) => {
+                  const { grande, chico, folioAbajo } = tituloFactura(f);
+                  const { itemsHeladeria, itemsComidas, itemsOtros } = agruparPorCategoria(f.items, productos);
+                  const tieneHeladeria = itemsHeladeria.length > 0;
+                  const tieneComidas = itemsComidas.length > 0;
+                  const shadowStyle = calcularSombra(f.items, productos);
+                  return (
+                    <Card
+                      key={f.id}
+                      className="flex flex-col gap-3 p-5 transition-shadow"
+                      style={shadowStyle ? { boxShadow: shadowStyle } : undefined}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-display text-2xl font-black text-cocoa">{grande}</p>
+                          {chico && <p className="text-base font-semibold text-cocoa/70">{chico}</p>}
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          {f.tipo === "reserva-mesa" && (
+                            <span className="rounded-full bg-mint/20 px-2 py-0.5 text-sm font-bold text-cocoa">
+                              <CalendarClock size={12} className="inline" /> Reserva
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1 text-sm font-bold text-cocoa/60">
+                            <Clock size={14} /> {formatHora12(f.creadoEn)}
                           </span>
-                        )}
-                        <span className="flex items-center gap-1 text-xs font-bold text-cocoa/60">
-                          <Clock size={13} /> {formatHora12(f.creadoEn)}
-                        </span>
+                        </div>
                       </div>
-                    </div>
-                    <p className="mt-1 font-semibold text-cocoa">{f.mesaNombre}</p>
-                    {f.fechaProgramada && (
-                      <p className="text-xs text-cocoa/60">
-                        <CalendarClock size={11} className="inline mr-1" />{f.fechaProgramada}{f.horaReserva ? ` · ${f.horaReserva}` : ""}
-                      </p>
-                    )}
-                    <p className="mt-2 text-sm text-cocoa/70">{f.items.length} ítem(s) · {formatCOP(f.total)}</p>
-                    <div className="mt-4 flex gap-2">
-                      <Button size="sm" variant="secondary" className="flex-1" onClick={() => setDetalle(f)}>Detalle</Button>
-                      <Button size="sm" className="flex-1" onClick={() => marcarServida(f.id, true)}><ListMusic size={15} /> Servir</Button>
-                    </div>
-                  </Card>
-                ))}
+
+                      {f.fechaProgramada && (
+                        <p className="flex items-center gap-1 text-sm text-cocoa/60">
+                          <CalendarClock size={13} />{f.fechaProgramada}{f.horaReserva ? ` · ${f.horaReserva}` : ""}
+                        </p>
+                      )}
+
+                      {tieneHeladeria && (
+                        <CategoriaBlock tema="heladeria" items={itemsHeladeria} lista />
+                      )}
+                      {tieneComidas && (
+                        <CategoriaBlock tema="comidas" items={itemsComidas} lista />
+                      )}
+                      {itemsOtros.length > 0 && (
+                        <div className="space-y-0.5 rounded-xl border border-sand p-3">
+                          {itemsOtros.map((it, i) => (
+                            <p key={i} className="text-base text-cocoa/70">
+                              {it.cantidad}× {it.nombre}
+                              {it.observacion && (
+                                <span className="ml-1 text-sm italic text-cocoa/50">— {it.observacion}</span>
+                              )}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      {folioAbajo && <p className="text-xs text-cocoa/40">{folio(f)}</p>}
+
+                      <p className="text-base font-black text-cocoa">{f.items.length} ítem(s) · {formatCOP(f.total)}</p>
+                      <div className="mt-auto flex gap-2">
+                        <Button size="sm" variant="secondary" className="flex-1" onClick={() => setDetalle(f)}>Detalle</Button>
+                        <Button size="sm" className="flex-1" onClick={() => marcarServida(f.id, true)}><ListMusic size={15} /> Servir</Button>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </section>

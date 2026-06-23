@@ -7,9 +7,11 @@ import { useData } from "@/store/dataStore";
 import { useSession } from "@/store/sessionStore";
 import { formatHora12, now, cx } from "@/lib/utils";
 import { folio } from "@/lib/factura";
+import { categoriasDe, calcularSombra, tituloFactura, agruparPorCategoria } from "@/lib/facturaVisual";
 import { playDing, playGuitarra, playPiano, playSaxofon } from "@/lib/sound";
 import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
+import { CategoriaBlock } from "@/components/ui/CategoriaBlock";
 import { Factura, Producto, TipoFactura } from "@/types";
 
 type TabCocina = "domicilio" | "mesa" | "reserva-domicilio" | "reserva-mesa";
@@ -43,38 +45,9 @@ const TIPO_LABEL: Record<Exclude<TipoFactura, "favor">, string> = {
   "reserva-regalo": "Reserva Regalo",
 };
 
-// ── Sombras dinámicas por categoría ──────────────────────────────────────────
-const SHADOW_HELADERIA =
-  "0 0 0 5px rgba(59,130,246,0.75), 0 10px 28px rgba(59,130,246,0.45)";
-const SHADOW_COMIDAS =
-  "0 0 0 5px rgba(251,146,60,0.75), 0 10px 28px rgba(251,146,60,0.45)";
-const SHADOW_MIXTO =
-  "-6px 0 14px rgba(59,130,246,0.65), 6px 0 14px rgba(251,146,60,0.65), 0 6px 18px rgba(0,0,0,0.15)";
-
-// Fuente de verdad única para resolver las categorías de los productos de una
-// factura: la usan tanto las sombras de las tarjetas como el sonido de aviso.
-function categoriasDe(items: Factura["items"], productos: Producto[]): Set<string> {
-  return new Set(
-    items
-      .map((it) => productos.find((p) => p.id === it.productoId)?.categoria)
-      .filter(Boolean) as string[]
-  );
-}
-
-function calcularSombra(
-  items: Factura["items"],
-  productos: Producto[]
-): string | undefined {
-  const cats = categoriasDe(items, productos);
-  const h = cats.has("heladeria");
-  const c = cats.has("comidas-rapidas");
-  if (h && c) return SHADOW_MIXTO;
-  if (h) return SHADOW_HELADERIA;
-  if (c) return SHADOW_COMIDAS;
-  return undefined;
-}
-
 // ── Sonido de aviso por categoría (independiente del tipo de factura) ───────
+// categoriasDe/calcularSombra viven en @/lib/facturaVisual (fuente única,
+// compartida también por Despachador).
 type ClaseSonido = "heladeria" | "comidas" | "mixto" | "otro";
 
 // "otro" cubre tanto productos sin categoría como mezclas con una tercera
@@ -108,26 +81,12 @@ function reproducirSonidoFactura(items: Factura["items"], productos: Producto[])
   }
 }
 
-function nombreFactura(f: Factura) {
-  return f.tipo === "mesa" || f.tipo === "reserva-mesa" ? f.mesaNombre : f.clienteNombre;
-}
-
 // ── Tarjeta individual de cocina ──────────────────────────────────────────────
 function CocinaCard({ factura }: { factura: Factura }) {
   const productos = useData((s) => s.productos);
   const updateFactura = useData((s) => s.updateFactura);
 
-  // Agrupar items por categoría
-  const getCategoria = (productoId: string) =>
-    productos.find((p) => p.id === productoId)?.categoria;
-
-  const itemsHeladeria = factura.items.filter(
-    (it) => getCategoria(it.productoId) === "heladeria"
-  );
-  const itemsComidas = factura.items.filter(
-    (it) => getCategoria(it.productoId) === "comidas-rapidas"
-  );
-  const itemsOtros = factura.items.filter((it) => !getCategoria(it.productoId));
+  const { itemsHeladeria, itemsComidas, itemsOtros } = agruparPorCategoria(factura.items, productos);
 
   const tieneHeladeria = itemsHeladeria.length > 0;
   const tieneComidas = itemsComidas.length > 0;
@@ -139,19 +98,8 @@ function CocinaCard({ factura }: { factura: Factura }) {
 
   const shadowStyle = calcularSombra(factura.items, productos);
   const esMesaTipo = factura.tipo === "mesa" || factura.tipo === "reserva-mesa";
-  // Domicilio / Reserva Domicilio: el dato grande pasa a ser el barrio (campo
-  // independiente del modelo, no se parsea de la dirección) y el folio (D-0002)
-  // se reubica como texto pequeño al pie de la tarjeta. Mesa / Reserva Mesa
-  // reciben el mismo tratamiento con el número de mesa. Regalo/Reserva Regalo
-  // no se tocan: siguen mostrando el folio en grande como antes.
   const esDomicilioFolioAbajo = factura.tipo === "domicilio" || factura.tipo === "reserva-domicilio";
-  const folioAbajo = esMesaTipo || esDomicilioFolioAbajo;
-  const tituloGrande = esMesaTipo
-    ? factura.mesaNombre || folio(factura)
-    : esDomicilioFolioAbajo
-    ? factura.barrio || factura.clienteNombre || folio(factura)
-    : folio(factura);
-  const subtituloChico = esMesaTipo ? undefined : nombreFactura(factura);
+  const { grande: tituloGrande, chico: subtituloChico, folioAbajo } = tituloFactura(factura);
   const tipoLabel = TIPO_LABEL[factura.tipo as Exclude<TipoFactura, "favor">] ?? factura.tipo;
 
   return (
@@ -198,80 +146,22 @@ function CocinaCard({ factura }: { factura: Factura }) {
 
       {/* ── Sección Heladería ──────────────────────────────────────── */}
       {tieneHeladeria && (
-        <div className={cx(
-          "rounded-xl border-2 p-3 transition",
-          factura.heladeriaLista
-            ? "border-blue-400 bg-blue-50"
-            : "border-sand bg-sand/20"
-        )}>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-base font-bold text-blue-700">🍦 Heladería</p>
-            <button
-              onClick={() =>
-                updateFactura(factura.id, { heladeriaLista: !factura.heladeriaLista })
-              }
-              className={cx(
-                "flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold transition",
-                factura.heladeriaLista
-                  ? "bg-blue-500 text-white"
-                  : "border border-blue-200 bg-white text-blue-600 hover:bg-blue-50"
-              )}
-            >
-              <Check size={13} />
-              {factura.heladeriaLista ? "Lista ✓" : "Marcar lista"}
-            </button>
-          </div>
-          <div className="space-y-0.5">
-            {itemsHeladeria.map((it, i) => (
-              <p key={i} className={cx("text-base text-cocoa", it.nuevo && "font-bold text-raspberry-dark")}>
-                {it.cantidad}× {it.nombre}
-                {it.nuevo && <span className="ml-1 text-sm font-bold text-raspberry">(NUEVO)</span>}
-                {it.observacion && (
-                  <span className="ml-1 text-sm italic text-cocoa/60">— {it.observacion}</span>
-                )}
-              </p>
-            ))}
-          </div>
-        </div>
+        <CategoriaBlock
+          tema="heladeria"
+          items={itemsHeladeria}
+          lista={!!factura.heladeriaLista}
+          onToggle={() => updateFactura(factura.id, { heladeriaLista: !factura.heladeriaLista })}
+        />
       )}
 
       {/* ── Sección Comidas Rápidas ────────────────────────────────── */}
       {tieneComidas && (
-        <div className={cx(
-          "rounded-xl border-2 p-3 transition",
-          factura.comidasListas
-            ? "border-orange-400 bg-orange-50"
-            : "border-sand bg-sand/20"
-        )}>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-base font-bold text-orange-700">🍔 Comidas Rápidas</p>
-            <button
-              onClick={() =>
-                updateFactura(factura.id, { comidasListas: !factura.comidasListas })
-              }
-              className={cx(
-                "flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold transition",
-                factura.comidasListas
-                  ? "bg-orange-500 text-white"
-                  : "border border-orange-200 bg-white text-orange-600 hover:bg-orange-50"
-              )}
-            >
-              <Check size={13} />
-              {factura.comidasListas ? "Listas ✓" : "Marcar listas"}
-            </button>
-          </div>
-          <div className="space-y-0.5">
-            {itemsComidas.map((it, i) => (
-              <p key={i} className={cx("text-base text-cocoa", it.nuevo && "font-bold text-raspberry-dark")}>
-                {it.cantidad}× {it.nombre}
-                {it.nuevo && <span className="ml-1 text-sm font-bold text-raspberry">(NUEVO)</span>}
-                {it.observacion && (
-                  <span className="ml-1 text-sm italic text-cocoa/60">— {it.observacion}</span>
-                )}
-              </p>
-            ))}
-          </div>
-        </div>
+        <CategoriaBlock
+          tema="comidas"
+          items={itemsComidas}
+          lista={!!factura.comidasListas}
+          onToggle={() => updateFactura(factura.id, { comidasListas: !factura.comidasListas })}
+        />
       )}
 
       {/* ── Otros items (sin categoría asignada) ──────────────────── */}
