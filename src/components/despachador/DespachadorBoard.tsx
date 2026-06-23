@@ -124,8 +124,8 @@ export function DespachadorBoard() {
                           <CalendarClock size={12} className="inline" /> Reserva
                         </span>
                       )}
-                      <span className="flex items-center gap-1 text-sm font-bold text-cocoa/60">
-                        <Clock size={14} /> {formatHora12(f.creadoEn)}
+                      <span className="flex items-center gap-1.5 text-xl font-bold text-cocoa/60">
+                        <Clock size={22} /> {formatHora12(f.creadoEn)}
                       </span>
                     </div>
                   </div>
@@ -211,8 +211,8 @@ export function DespachadorBoard() {
                               <CalendarClock size={12} className="inline" /> Reserva
                             </span>
                           )}
-                          <span className="flex items-center gap-1 text-sm font-bold text-cocoa/60">
-                            <Clock size={14} /> {formatHora12(f.creadoEn)}
+                          <span className="flex items-center gap-1.5 text-xl font-bold text-cocoa/60">
+                            <Clock size={22} /> {formatHora12(f.creadoEn)}
                           </span>
                         </div>
                       </div>

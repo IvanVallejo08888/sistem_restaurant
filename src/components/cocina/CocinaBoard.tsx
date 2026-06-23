@@ -116,8 +116,8 @@ function CocinaCard({ factura }: { factura: Factura }) {
           )}
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="flex items-center gap-1 text-sm text-cocoa/50">
-            <Clock size={13} /> {formatHora12(factura.creadoEn)}
+          <span className="flex items-center gap-1.5 text-xl font-semibold text-cocoa/50">
+            <Clock size={22} /> {formatHora12(factura.creadoEn)}
           </span>
           <span className={cx(
             "rounded-full px-2 py-0.5 text-sm font-bold",
