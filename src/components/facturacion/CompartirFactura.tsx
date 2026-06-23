@@ -1,11 +1,12 @@
 "use client";
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import { Share2, FileText, Loader2 } from "lucide-react";
+import { Share2, FileText, Loader2, MessageCircle } from "lucide-react";
 import { Factura } from "@/types";
 import { folio } from "@/lib/factura";
 import { generarFacturaPDF } from "@/lib/generarFacturaPDF";
 import { useData } from "@/store/dataStore";
+import { formatCOP, linkWhatsapp } from "@/lib/utils";
 import { FacturaView } from "./FacturaView";
 import { Button } from "@/components/ui/Button";
 
@@ -14,9 +15,21 @@ import { Button } from "@/components/ui/Button";
 // - "Factura electrónica PRO": PDF con el formato de factura de venta completo.
 // generarPng() se mantiene exportada vía el componente porque otros módulos
 // (o una futura opción "Descargar PNG") pueden seguir necesitándola.
-export function CompartirFactura({ factura }: { factura: Factura }) {
+export function CompartirFactura({
+  factura,
+  mostrarCompartirDomiciliario = false,
+}: {
+  factura: Factura;
+  // Solo Despachador necesita el botón "Compartir a domiciliario"; el resto
+  // de pantallas que reutilizan este componente (Facturación/Historial) no
+  // lo piden y siguen mostrando exactamente lo mismo que antes.
+  mostrarCompartirDomiciliario?: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const local = useData((s) => s.locales.find((l) => l.id === factura.localId));
+  const domiciliarioAsignado = useData((s) =>
+    s.domiciliarios.find((d) => d.id === factura.domiciliarioId)
+  );
   const [busy, setBusy] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
 
@@ -77,6 +90,18 @@ export function CompartirFactura({ factura }: { factura: Factura }) {
     }
   };
 
+  // Si no hay domiciliario asignado o no tiene WhatsApp registrado, el botón
+  // queda deshabilitado en vez de romper o intentar abrir un chat inválido.
+  const whatsappDomiciliario = domiciliarioAsignado?.whatsapp;
+  const compartirADomiciliario = () => {
+    if (!whatsappDomiciliario) return;
+    const mensaje =
+      `Hola ${domiciliarioAsignado!.nombreCompleto}, tienes un domicilio asignado. ` +
+      `Factura ${folio(factura)} - Cliente: ${factura.clienteNombre || "-"} - ` +
+      `Dirección: ${factura.direccion || "-"} - Total: ${formatCOP(factura.total)}`;
+    window.open(linkWhatsapp(whatsappDomiciliario, mensaje), "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div>
       <div ref={ref}>
@@ -94,6 +119,16 @@ export function CompartirFactura({ factura }: { factura: Factura }) {
           )}
         </Button>
       </div>
+      {mostrarCompartirDomiciliario && (
+        <Button
+          className="mt-3 w-full !bg-[#25D366] !text-white hover:!bg-[#1ebe5d]"
+          onClick={compartirADomiciliario}
+          disabled={!whatsappDomiciliario}
+          title={whatsappDomiciliario ? undefined : "Sin domiciliario asignado"}
+        >
+          <MessageCircle size={16} /> Compartir a domiciliario
+        </Button>
+      )}
     </div>
   );
 }

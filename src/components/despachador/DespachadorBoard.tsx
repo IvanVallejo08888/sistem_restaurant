@@ -321,7 +321,7 @@ export function DespachadorBoard() {
           <Button onClick={() => completar(detalle)}><Check size={16} /> Cerrar mesa</Button>
         ) : undefined}
       >
-        {detalle && <CompartirFactura factura={detalle} />}
+        {detalle && <CompartirFactura factura={detalle} mostrarCompartirDomiciliario />}
       </Modal>
 
       <Modal
@@ -369,7 +369,7 @@ export function DespachadorBoard() {
         onClose={() => setFacturaAsignada(null)}
         title="Factura electrónica"
       >
-        {facturaAsignada && <CompartirFactura factura={facturaAsignada} />}
+        {facturaAsignada && <CompartirFactura factura={facturaAsignada} mostrarCompartirDomiciliario />}
       </Modal>
 
       {perfil && (

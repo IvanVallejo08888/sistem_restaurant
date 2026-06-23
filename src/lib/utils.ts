@@ -60,3 +60,13 @@ export const horaMas = (iso: string, minutos: number) =>
 
 export const cx = (...c: (string | false | null | undefined)[]) =>
   c.filter(Boolean).join(" ");
+
+// Construye un link de wa.me a partir de un número de WhatsApp guardado en la
+// app: limpia espacios/guiones/paréntesis/"+" y antepone el código de país de
+// Colombia (57) si el número no lo trae ya.
+export const linkWhatsapp = (numero: string, mensaje?: string) => {
+  const limpio = numero.replace(/[\s\-()+]/g, "");
+  const conCodigo = limpio.startsWith("57") ? limpio : `57${limpio}`;
+  const query = mensaje ? `?text=${encodeURIComponent(mensaje)}` : "";
+  return `https://wa.me/${conCodigo}${query}`;
+};
