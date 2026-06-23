@@ -117,6 +117,9 @@ export type Factura = {
   // Despacho
   despachado: boolean;
   domiciliarioId?: ID;
+  // Momento exacto en que se asignó el domiciliario (botón "Asignar" en
+  // Despachador); se limpia al retirar la factura del domiciliario.
+  domiciliarioAsignadoEn?: string;
   servida?: boolean;
   // Reservas: fecha (YYYY-MM-DD) y hora (HH:MM) en que se debe preparar.
   // No aparece en Cocina antes de la fecha programada.

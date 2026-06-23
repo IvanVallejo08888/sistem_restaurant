@@ -3,6 +3,7 @@ import {
   Local, Producto, Domiciliario, Mesa, Factura, Gasto, Recomendacion,
 } from "@/types";
 import { dataService } from "@/services";
+import { now } from "@/lib/utils";
 
 // Store de datos respaldado por la capa de servicios.
 // No conoce LocalStorage ni HTTP: solo llama a dataService.
@@ -157,8 +158,13 @@ export const useData = create<DataState>((set, get) => ({
     // vez (la confirmación de entrega ya no es un paso manual aparte).
     const patch: Partial<Factura> =
       domiciliarioId === null
-        ? { domiciliarioId: null as unknown as undefined, estado: "listo", despachado: false }
-        : { domiciliarioId, estado: "completado", despachado: true };
+        ? {
+            domiciliarioId: null as unknown as undefined,
+            domiciliarioAsignadoEn: null as unknown as undefined,
+            estado: "listo",
+            despachado: false,
+          }
+        : { domiciliarioId, domiciliarioAsignadoEn: now(), estado: "completado", despachado: true };
     const up = await dataService.updateFactura(facturaId, patch);
     set((s) => ({ facturas: s.facturas.map((x) => (x.id === facturaId ? up : x)) }));
   },

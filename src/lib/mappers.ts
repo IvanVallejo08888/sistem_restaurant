@@ -146,6 +146,7 @@ export const rowToFactura = (r: any): Factura => ({
   creadoEn: r.creado_en,
   despachado: r.despachado,
   domiciliarioId: r.domiciliario_id ?? undefined,
+  domiciliarioAsignadoEn: r.domiciliario_asignado_en ?? undefined,
   servida: r.servida ?? undefined,
   fechaProgramada: r.fecha_programada ?? undefined,
   horaReserva: r.hora_reserva ?? undefined,
@@ -190,6 +191,7 @@ export const facturaToRow = (f: Factura) => ({
   creado_en: f.creadoEn,
   despachado: f.despachado,
   domiciliario_id: f.domiciliarioId ?? null,
+  domiciliario_asignado_en: f.domiciliarioAsignadoEn ?? null,
   servida: f.servida ?? null,
   fecha_programada: f.fechaProgramada ?? null,
   hora_reserva: f.horaReserva ?? null,
@@ -271,6 +273,7 @@ export const facturaPatchToRow = (f: Partial<Factura>) => {
   if (f.total !== undefined) row.total = f.total;
   if (f.despachado !== undefined) row.despachado = f.despachado;
   if (f.domiciliarioId !== undefined) row.domiciliario_id = f.domiciliarioId;
+  if (f.domiciliarioAsignadoEn !== undefined) row.domiciliario_asignado_en = f.domiciliarioAsignadoEn;
   if (f.servida !== undefined) row.servida = f.servida;
   if (f.fechaProgramada !== undefined) row.fecha_programada = f.fechaProgramada;
   if (f.horaReserva !== undefined) row.hora_reserva = f.horaReserva;

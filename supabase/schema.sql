@@ -80,6 +80,9 @@ create table if not exists facturas (
   -- Despacho
   despachado        boolean not null default false,
   domiciliario_id   text,
+  -- Momento exacto en que se asignó el domiciliario (botón "Asignar" en
+  -- Despachador); se limpia al retirar la factura del domiciliario.
+  domiciliario_asignado_en timestamptz,
   servida           boolean,
   -- Reservas: fecha (YYYY-MM-DD) y hora (HH:MM) en que se prepara el pedido.
   -- No aparece en Cocina antes de la fecha programada.
@@ -142,6 +145,7 @@ alter table facturas add column if not exists valor_costo_adicional numeric;
 alter table facturas add column if not exists porcentaje_costo_adicional numeric;
 alter table facturas add column if not exists nombre_quien_envia text;
 alter table facturas add column if not exists contacto_quien_envia text;
+alter table facturas add column if not exists domiciliario_asignado_en timestamptz;
 
 -- Índices por fecha para que las queries de "hoy" sean eficientes
 create index if not exists facturas_creado_en_idx on facturas(creado_en);

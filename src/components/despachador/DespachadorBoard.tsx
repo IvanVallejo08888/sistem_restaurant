@@ -453,6 +453,7 @@ function PerfilDomiciliario({
                     <th className="px-3 py-2 font-bold">Factura</th>
                     <th className="px-3 py-2 font-bold">Barrio</th>
                     <th className="px-3 py-2 font-bold">Valor productos</th>
+                    <th className="px-3 py-2 font-bold">Hora de asignación</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -466,6 +467,9 @@ function PerfilDomiciliario({
                       </td>
                       <td className="px-3 py-2 text-cocoa/70">{barrioDe(f)}</td>
                       <td className="px-3 py-2 font-semibold text-cocoa">{formatCOP(f.subtotal)}</td>
+                      <td className="px-3 py-2 text-cocoa/70">
+                        {f.domiciliarioAsignadoEn ? formatHora12(f.domiciliarioAsignadoEn) : "—"}
+                      </td>
                       <td className="px-3 py-2">
                         <div className="flex justify-end">
                           <button
