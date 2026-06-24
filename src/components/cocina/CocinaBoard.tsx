@@ -99,7 +99,13 @@ function CocinaCard({ factura }: { factura: Factura }) {
   const shadowStyle = calcularSombra(factura.items, productos);
   const esMesaTipo = factura.tipo === "mesa" || factura.tipo === "reserva-mesa";
   const esDomicilioFolioAbajo = factura.tipo === "domicilio" || factura.tipo === "reserva-domicilio";
-  const { grande: tituloGrande, chico: subtituloChico, folioAbajo } = tituloFactura(factura);
+  const { grande: tituloFacturaGrande, chico: subtituloChico, folioAbajo } = tituloFactura(factura);
+  // En Cocina (a diferencia de Despachador), el tipo Regalo también debe
+  // mostrar el barrio como título grande, igual que Domicilio/Favor.
+  const esRegaloTipo = factura.tipo === "regalo" || factura.tipo === "reserva-regalo";
+  const tituloGrande = esRegaloTipo
+    ? factura.barrio || tituloFacturaGrande
+    : tituloFacturaGrande;
   const tipoLabel = TIPO_LABEL[factura.tipo as Exclude<TipoFactura, "favor">] ?? factura.tipo;
 
   return (
